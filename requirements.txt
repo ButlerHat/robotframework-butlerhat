@@ -1,0 +1,5 @@
+robotframework-browser
+robotframework-seleniumlibrary
+fastdeploy-python
+pillow
+imagehash
