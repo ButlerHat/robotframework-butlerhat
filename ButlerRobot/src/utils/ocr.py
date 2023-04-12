@@ -6,12 +6,15 @@ import fastdeploy as fd
 from ..data_types import BBox
 from PIL import Image
 
-def request_ocr(url: str, image: Image.Image, lang='en', format='PNG'):
-    # Transform image to base64 string
-    byte_io = io.BytesIO()
-    image.save(byte_io, format=format)
-    byte_io = byte_io.getvalue()
-    img_str = base64.b64encode(byte_io).decode('utf-8')
+def request_ocr(url: str, image: Image.Image | str, lang='en', format='PNG'):
+    if isinstance(image, str):
+        img_str = image
+    else:
+        # Transform image to base64 string
+        byte_io = io.BytesIO()
+        image.save(byte_io, format=format)
+        byte_io = byte_io.getvalue()
+        img_str = base64.b64encode(byte_io).decode('utf-8')
     
     headers = {"Content-Type": "application/json"}
     data = {"data": {"image": img_str}, "parameters": {}}
@@ -23,7 +26,7 @@ def request_ocr(url: str, image: Image.Image, lang='en', format='PNG'):
         raise Exception(f"Error in ocr request. Code: {response.status_code} Text: {response.text}")
     
 
-def get_all_text(url, image: Image.Image, conf_threshold: float = 0.8, lang='en') -> str | None:
+def get_all_text(url, image: Image.Image | str, conf_threshold: float = 0.8, lang='en') -> str | None:
     """
     Process TiffImageFile with OCR, tokenize the text and for every token create a bounding box.
     :param image: Image. Image to process.

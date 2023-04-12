@@ -394,6 +394,10 @@ class BBox:
         self.width = int(self.width)
         self.height = int(self.height)
 
+    # To dict
+    def to_dict(self):
+        return asdict(self)
+
     def pillow_print(self):
         return (self.x, self.y, self.x + self.width, self.y + self.height)
     

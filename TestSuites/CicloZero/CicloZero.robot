@@ -1,14 +1,14 @@
 *** Settings ***
-Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  WITH NAME  Browser 
+Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}/data  WITH NAME  Browser 
 
 
 *** Variables ***
-${PHONE}  iphone 12 Negro
+${OUTPUT_DIR}  /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/TestSuites/CicloZero
 
 *** Test Cases ***
 Get Phone Price
     Open Browser  https://amazon.es
-    Accept Cookies
+    AI.Click "Cesta"
 
 *** Keywords ***
 Accept cookies

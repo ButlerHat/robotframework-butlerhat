@@ -3,6 +3,9 @@ Documentation     Crawl most used websites in EU
 Library   ButlerRobot.AIBrowserLibrary  AS  Browser
 Library      ButlerRobot.CrawlLibrary  AS  CrawlLibrary
 
+*** Variables ***
+${OUTPUT_DIR}   /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/TestSuites/Crawl
+
 *** Test Cases ***
 
 Amazon

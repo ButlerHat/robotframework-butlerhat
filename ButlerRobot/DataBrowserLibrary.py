@@ -45,7 +45,10 @@ class DataBrowserLibrary(DataWrapperLibrary):
             if os.path.isfile(keywords_file) and 'jsextension' not in kwargs:
                 kwargs['jsextension'] = keywords_file  # This argument triggers the initialization of playwright
 
-        super().__init__(Browser(*args, **kwargs))
+        # Get arguments to pass to the DataWrapperLibrary
+        output_path = kwargs.pop('output_path', None)
+
+        super().__init__(Browser(*args, **kwargs), output_path=output_path)
         self._library: Browser = self._library
 
         # To filter recorded actions
@@ -122,7 +125,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         BuiltIn().sleep(3)  # For safe recording
 
     def _get_element_bbox_from_pointer(self, x, y):
-        bbox: dict = self._library.execute_javascript(f'document.elementFromPoint({x}, {y}).getBoundingClientRect();')
+        bbox: dict = self._library.evaluate_javascript(None, f'document.elementFromPoint({x}, {y}).getBoundingClientRect()')
         return BBox(bbox['x'], bbox['y'], bbox['width'], bbox['height'])
 
     def _get_selector_pointer_and_bbox(self, selector):
