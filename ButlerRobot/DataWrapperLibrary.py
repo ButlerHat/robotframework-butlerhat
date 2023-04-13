@@ -297,6 +297,9 @@ class DataWrapperLibrary:
         """
         BuiltIn().log(f"Ending test {name}", console=self.console)
 
+        if not self.record:
+            return
+
         assert not self.exec_stack.is_empty(), "Error ending test. The stack must not be empty"
         test_task = self.exec_stack.pop()
         assert isinstance(test_task, Task), "Error ending test. The last element in the stack must be a Task"
@@ -546,12 +549,13 @@ class DataWrapperLibrary:
 
     # ========================= PROXY LIBRARY =========================
 
-    def __init__(self, library, console=True, output_path=None, all_json=False, only_actions=True):
+    def __init__(self, library, console=True, record=True, output_path=None, all_json=False, only_actions=True):
         
         self._library = library
         self.keyword_libraries = []
         self.only_actions = only_actions
         self.ROBOT_LIBRARY_LISTENER = self
+        self.record = record
         
         # For identifying every step
         self.id_count = 0
@@ -619,7 +623,7 @@ class DataWrapperLibrary:
                     self.last_pointer_xy = pointer_xy
                 if bbox:
                     action.action_args.bbox = bbox
-                    action.action_args.selector_dom = args[0]
+                    action.action_args.selector_dom = str(args[0])
             
             # String
             if len(args) > 0 and len(string_kw) > 0:

@@ -170,15 +170,19 @@ class AIBrowserLibrary(DataBrowserLibrary):
 
 
     @staticmethod
-    def _set_mode(mode: str) -> AIMode:
-        if 'flexible' in mode.lower():
+    def _set_mode(mode_in_prompt: str) -> AIMode:
+        if not mode_in_prompt:
+            mode_in_prompt = BuiltIn().get_variable_value('${DEFAULT_AI_MODE}', 'strict')
+        
+        if 'flexible' in mode_in_prompt.lower():
             return AIMode.flexible
-        elif 'strict' in mode.lower():
+        elif 'strict' in mode_in_prompt.lower():
             return AIMode.strict
-        elif 'critical' in mode.lower():
+        elif 'critical' in mode_in_prompt.lower():
             return AIMode.critical
         else:
-            return AIMode.strict
+            BuiltIn().fail(f"Invalid mode: {mode_in_prompt}. Using default mode: strict")
+            assert False, "Invalid mode"  # For type checking
         
     def _run_action(self, instruction: str, action_and_args: tuple, mode: AIMode):
         # If the action is flexible don't check
@@ -267,7 +271,11 @@ class AIBrowserLibrary(DataBrowserLibrary):
             # Update the image
             image = self.last_observation.screenshot
             # Update the task history
-            last_action = ai_task.steps[-1]
+            if ai_task.steps:
+                last_action = ai_task.steps[-1]
+            else:
+                # Could be no action if is strict so last_action is ai_task
+                last_action = ai_task
             task_history: list[PromptStep] = AIExampleBuilder(root_task, self.with_tasks).build_history(last_action)
         else:
             msg = f'AI reached the max number of steps: {self.max_steps}'

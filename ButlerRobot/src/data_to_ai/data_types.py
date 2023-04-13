@@ -4,7 +4,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class PromptStep:
     name: str
-    args: dict
+    args: dict  # Action args as dict
     type: str
 
     def __repr__(self):

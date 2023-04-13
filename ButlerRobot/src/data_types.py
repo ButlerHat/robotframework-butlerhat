@@ -317,7 +317,14 @@ class ActionArgs:
     string: str  # The string that was used in the action. Ex: "Type text" -> "Hello World"
     bbox: Optional[BBox] = field(default=None)  # Bounding box of the element
 
+    # Post init convert selector dom to str. If this is not done, the selector could be a dict and in the convertion to 
+    # pandas coudl fail because of the dict type.
+    def __post_init__(self):
+        self.selector_dom = str(self.selector_dom)
+
     def to_dict(self):
+        if not isinstance(self.selector_dom, str):
+            self.selector_dom = str(self.selector_dom)
         return asdict(self)
 
 @dataclass

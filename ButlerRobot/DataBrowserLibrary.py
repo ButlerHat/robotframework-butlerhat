@@ -6,7 +6,7 @@ import random
 from typing import Optional, Union
 from PIL import Image
 from Browser import Browser, KeyboardModifier, MouseButton
-from Browser.utils.data_types import MouseButtonAction
+from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
@@ -47,8 +47,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
 
         # Get arguments to pass to the DataWrapperLibrary
         output_path = kwargs.pop('output_path', None)
+        record = kwargs.pop('record', True)
 
-        super().__init__(Browser(*args, **kwargs), output_path=output_path)
+        super().__init__(Browser(*args, **kwargs), output_path=output_path, record=record)
         self._library: Browser = self._library
 
         # To filter recorded actions
@@ -176,6 +177,38 @@ class DataBrowserLibrary(DataWrapperLibrary):
             self.exec_stack.push(current_action)
 
     # ======== Keywords =========
+    @keyword(name="Open Browser", tags=("Setter", "BrowserControl"))
+    def open_browser(
+        self,
+        url: Optional[str] = None,
+        browser: SupportedBrowsers = SupportedBrowsers.chromium,
+        headless: bool = False,
+        pause_on_failure: bool = True,
+        bypassCSP=True,
+    ):
+        """
+        Open a browser. This keyword is a wrapper for Playwright Open Browser keyword.
+        Param url: Url to open. If not provided, will open an empty page.
+        Param browser: Browser to use. Supported browsers: chromium, firefox, webkit.
+        Param headless: Run browser in headless mode.
+        Param pause_on_failure: Pause test execution if keyword fails.
+        Param bypassCSP: Bypass CSP.
+        """
+        self._library.open_browser(url, browser, headless, pause_on_failure, bypassCSP)
+        self._library.wait_until_network_is_idle()
+        BuiltIn().sleep(1)
+
+    @keyword(name="Wait New Page", tags=("Setter", "BrowserControl"))
+    def wait_new_page(self, url: Optional[str] = None, wait: int = 3) -> NewPageDetails:
+        """
+        Open a new page. This keyword is a wrapper for Playwright New Page keyword.
+        Param url: Url to open. If not provided, will open an empty page.
+        """
+        return_val = self._library.new_page(url)
+        self._library.wait_until_network_is_idle()
+        BuiltIn().sleep(wait)
+        return return_val
+        
     @keyword(name='Click', tags=['action', 'PageContent'])
     def click(self, selector: str, button: MouseButton = MouseButton.left, clickCount: int = 1, delay: Optional[datetime.timedelta] = None, position_x: Optional[float] = None, position_y: Optional[float] = None, force: bool = False, noWaitAfter: bool = False, *modifiers: KeyboardModifier):
         """

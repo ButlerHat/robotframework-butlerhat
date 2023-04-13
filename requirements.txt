@@ -3,3 +3,6 @@ robotframework-seleniumlibrary
 fastdeploy-python
 pillow
 imagehash
+cryptography
+datasets
+pandas

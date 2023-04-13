@@ -1,6 +1,8 @@
 .DS_Store
 
 # RobotFramework
+ai_finetuned/
+output/
 selenium-screenshot-*
 results/
 pabot-crawl*/
