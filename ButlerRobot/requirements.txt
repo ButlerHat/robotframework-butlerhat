@@ -6,3 +6,4 @@ imagehash
 cryptography
 datasets
 pandas
+openpyxl
