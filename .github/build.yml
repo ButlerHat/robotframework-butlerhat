@@ -1,0 +1,32 @@
+name: Build and Publish Docker Image
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch: # manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.10
+
+    - name: Ofuscate phthon
+      run: |
+        pip install python-minifier
+        pyminify ButlerRobot/ --in-place
+
+    - name: Build Python package
+      run: python setup.py sdist
+
+    - name: Upload Python package
+      uses: actions/upload-artifact@v2
+      with:
+        name: butlerhat
+        path: dist/*.tar.gz
+

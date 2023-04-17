@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-from setuptools import setup, find_packages  # type: ignore
+import os
 import sys
+from setuptools import setup, find_packages  # type: ignore
 
 sys.path.append("ButlerRobot")
 
@@ -9,13 +10,14 @@ with open("README.md", encoding="utf-8") as f:
 
 package_data = {
     "ButlerRobot": [
-        "javascript/keywords.js"
+        "javascript/keywords.js",
+        "requirements.txt"
     ],
 }
 
 packages = find_packages(exclude=["test", "TestSuites"])
 
-install_requires = open("requirements.txt").readlines()
+install_requires = open(os.path.join("ButlerRobot", "requirements.txt")).readlines()
 
 setup_kwargs = {
     "name": "robotframework-butlerhat",
