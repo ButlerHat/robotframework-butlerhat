@@ -10,5 +10,6 @@ credentials = {
 
 
 def get_variables():
-    pass_ = BuiltIn().get_variable_value('${PASSWORD}', os.environ.get('ROBOT_CICLOZERO_PASS'))
+    pass_ = BuiltIn().get_variable_value('${ROBOT_CICLOZERO_PASS}', os.environ.get('ROBOT_CICLOZERO_PASS'))
+    assert pass_, 'Password not found. Define ROBOT_CICLOZERO_PASS environment variable or set it as variable.'
     return vault.get_credentials(pass_, credentials)

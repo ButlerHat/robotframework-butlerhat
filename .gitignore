@@ -1,6 +1,7 @@
 .DS_Store
 
 # RobotFramework
+*.tar.gz
 ai_finetuned/
 output/
 selenium-screenshot-*

@@ -5,9 +5,8 @@ Variables  ./robotframework/variables/credentials.py
 
 
 *** Variables ***
-# ${ROBOT_DIR}  /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/TestSuites/CicloZero/robotframework
-# ${OUTPUT_DIR}  ${ROBOT_DIR}/output
 ${DEFAULT_AI_MODE}  Flexible
+${BROWSER_WAIT}  2
 
 ${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}/stock.quant.xlsx
 
@@ -26,7 +25,7 @@ CiclAI Stock
     AI.Login with user ${user} and pass ${pass}
     AI.Go to menu icon at the top left
     AI Critical.Go to inventario
-    AI Critical.Click on "informes" in the top menu
+    AI Critical, Wait 2.Click on "informes" in the top menu
     AI Critical.Click on "Informe de inventario" in informes submenu
     
     Comment  Marcar todos los registros de la tabla

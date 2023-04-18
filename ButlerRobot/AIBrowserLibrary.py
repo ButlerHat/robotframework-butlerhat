@@ -1,4 +1,5 @@
 import os
+import re
 import requests
 import copy
 import base64
@@ -57,8 +58,9 @@ class AIBrowserLibrary(DataBrowserLibrary):
 
     def __init__(
             self, 
-            ai_url='http://nginx_udop:5000/predict_rf', 
-            ocr_url="http://nginx_udop:80/fd/ppocrv3",
+            ai_url=None, 
+            ocr_url=None,
+            wait_for_browser=None,
             max_steps=5, 
             with_tasks=False, 
             fix_bbox=False,
@@ -66,18 +68,27 @@ class AIBrowserLibrary(DataBrowserLibrary):
             *args, 
             **kwargs):
         # ia_url is nginx because the service mode
-        super().__init__(*args, **kwargs)
-        self.ai_url = ai_url
+        self.ai_url = ai_url if ai_url else os.environ.get('AI_URL', 'http://ai.butlerhat.com/predict_rf')
         self.max_steps = max_steps
         self.with_tasks = with_tasks
         self.fix_bbox = fix_bbox
         self.save_screenshots = save_screenshots
+        self.wait_time = wait_for_browser
 
         # Ocr url
-        self.ocr_url = ocr_url
+        self.ocr_url = ocr_url if ocr_url else os.environ.get('OCR_URL', 'http://ocr.butlerhat.com/fd/ppocrv3')
         
         # Hugging face API Token
         self.hf_token = os.environ.get('HF_TOKEN', None)
+
+        # Init Browser
+        super().__init__(*args, **kwargs)
+
+    @property
+    def _wait(self):
+        if self.wait_time is None:
+            self.wait_time = BuiltIn().get_variable_value('${ROBOT_BROWSER_WAIT}', 2)
+        return self.wait_time
 
     # Overwrites
     def _get_dom(self):
@@ -85,7 +96,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
     
     def _wait_for_browser(self):
         pass
-        BuiltIn().sleep(1)  # Less than recording
+        BuiltIn().sleep(self._wait)  # Less than recording
 
     def _get_bbox_and_pointer(self, selector: str | BBox) -> tuple[None, None] | tuple[BBox, tuple]:
             """
@@ -150,11 +161,28 @@ class AIBrowserLibrary(DataBrowserLibrary):
         BuiltIn().log(f"Waiting for T5 response. Checking element: {ocr_element}, Instruction: {instruction}", level='DEBUG', console=self.console)
         output = query({
             "inputs": f"""
-                Instruction: {instruction}. 
-
-                Selected element OCR: {ocr_element}
-
                 Answer with "yes" or "no". Is the selected element the correct for the instruction?
+
+                Example:
+                Instruction: Click on accept. 
+                Selected element OCR: aceptar.
+                Answer: yes
+
+                Instruction: Click on cookies policy. 
+                Selected element OCR: accept cooki.
+                Answer: no
+
+                Instruction: Click on "informes" in the top menu 
+                Selected element OCR: Informacion genera.
+                Answer: no
+
+                Instruction: Go to inventario. 
+                Selected element OCR: Inventaric.
+                Answer: yes
+
+                Instruction: {instruction}. 
+                Selected element OCR: {ocr_element}.
+                Answer:
             """,
             "options": {
                 "wait_for_model": True
@@ -183,6 +211,14 @@ class AIBrowserLibrary(DataBrowserLibrary):
         else:
             BuiltIn().fail(f"Invalid mode: {mode_in_prompt}. Using default mode: strict")
             assert False, "Invalid mode"  # For type checking
+
+    def _sleep_before_execution(self, mode_in_prompt: str):
+        if 'wait' in mode_in_prompt.lower():
+            # Get with regex the number after wait
+            sleep_time = re.findall(r'wait\s*(\d+)', mode_in_prompt.lower())
+            if sleep_time:
+                sleep_time = int(sleep_time[0])
+                BuiltIn().run_keyword('Sleep', sleep_time)
         
     def _run_action(self, instruction: str, action_and_args: tuple, mode: AIMode):
         # If the action is flexible don't check
@@ -217,7 +253,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             if not element_txt:
                 error, error_msg = True, f'{error_msg} No text found in the element. The action is: {action_and_args}'
             
-            assert element_txt is not None, 'Element_txt must be not None at this point'
+            assert not error and element_txt is not None, 'Element_txt must be not None at this point'
             if not error and self._is_correct_element(instruction, element_txt):
                 BuiltIn().run_keyword(*action_and_args)
                 return
@@ -236,6 +272,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
         Run the task on the AI
         """
         kw_mode: AIMode = self._set_mode(mode)
+        self._sleep_before_execution(mode)
 
         root_: Step = self.exec_stack.get_root()
         ai_task_: Step = self.exec_stack.get_last_step()

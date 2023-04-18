@@ -508,6 +508,10 @@ class DataWrapperLibrary:
         step: Step = self.exec_stack.pop()
         
         if step.status == SaveStatus.no_record:
+            # If is an sleep refresh observation
+            if step.name.lower() == 'sleep':
+                if self._is_browser_open():
+                    self.last_observation = self._get_observation()
             BuiltIn().log(f"Not recording {step.name}. Not valid. Skipping", console=self.console, level="DEBUG")
             return
         
@@ -560,8 +564,16 @@ class DataWrapperLibrary:
         # For identifying every step
         self.id_count = 0
 
-        # Add keywords with @keyword decorator
-        attributes = [(name, getattr(self, name)) for name in dir(self)]
+        # Add keywords with @keyword decorator, remove @property and @classmethod to don't evaluate
+        attributes = []
+        for name in dir(self):
+            # Check if is a property or classmethod
+            if hasattr(self.__class__, name):
+                if isinstance(getattr(self.__class__, name), property):
+                    continue
+                if isinstance(getattr(self.__class__, name), classmethod):
+                    continue
+            attributes.append((name, getattr(self, name)))
         self.keywords_decorator = [(name, value) for name, value in attributes
                     if not isinstance(value, self.__class__) and hasattr(value, 'robot_name')]
         
@@ -594,18 +606,21 @@ class DataWrapperLibrary:
     def __getattr__(self, name):
         """
         Proxy every method call to Robot Framework.
+
+        Explanation: getattr for methods and not variables
         """
-        keyword_keys = [self._get_key_from_keyword(k) for k in self.get_keyword_names()]
+        # Keyword names may not be initialized yet
+        try:
+            keyword_keys = [self._get_key_from_keyword(k) for k in self.get_keyword_names()]
+        except:
+            keyword_keys = []
         # To make method behave like a keyword
         if self._get_key_from_keyword(name) in keyword_keys:
             def method_as_keyword(*args, **kwargs):
                 return BuiltIn().run_keyword(name, *args, **kwargs)
             return method_as_keyword
-        # Never called I think
-        elif name in self.added_keywords:
-            return getattr(self, name)
         else:
-            raise AttributeError("Non-existing attribute '%s'" % name)
+            return super().__getattribute__(name)
 
     def run_keyword(self, name, args, kwargs=None):
         def complete_page_action(action: PageAction) -> PageAction:
