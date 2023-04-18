@@ -9,8 +9,8 @@ ARG INSTALL_ZSH="true"
 ARG UPGRADE_PACKAGES="true"
 # Install needed packages and setup non-root user. Use a separate RUN statement to add your own dependencies.
 ARG UNAME=vscode
-ARG USER_ID=1004
-ARG GROUP_ID=1004
+ARG USER_ID=1000
+ARG GROUP_ID=1000
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     # Remove imagemagick due to https://security-tracker.debian.org/tracker/CVE-2019-10131
     && apt-get purge -y imagemagick imagemagick-6-common \
@@ -48,7 +48,12 @@ RUN wget -O /tmp/geckodriver.tar.gz https://github.com/mozilla/geckodriver/relea
 RUN tar -xf /tmp/geckodriver.tar.gz -C /usr/local/bin/
 
 # Install ButlerRobot and dependencies. The package ButlerRobot install all dependencies in the setup.py
-COPY . /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
-RUN chown -R $UNAME:$UNAME /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
-USER $UNAME
-RUN pip install -e /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
+ARG PACKAGE_FILE=robotframework-butlerhat-0.1.tar.gz
+COPY ${PACKAGE_FILE} /tmp/
+RUN pip install /tmp/${PACKAGE_FILE} \
+    && rm -rf /tmp/${PACKAGE_FILE}
+
+# Install requirements.txt
+COPY requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt \
+    && rm -rf /tmp/requirements.txt
