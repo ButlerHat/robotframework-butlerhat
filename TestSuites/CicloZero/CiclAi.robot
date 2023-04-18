@@ -1,5 +1,5 @@
 *** Settings ***
-Library    ButlerRobot.AIBrowserLibrary  record=${False}  output_path=${OUTPUT_DIR}/../data  WITH NAME  Browser 
+Library    ButlerRobot.AIBrowserLibrary  record=${False}  output_path=${OUTPUT_DIR}${/}..${/}data  WITH NAME  Browser 
 Library    ./robotframework/keywords/count_excel.py
 Variables  ./robotframework/variables/credentials.py
 
@@ -8,7 +8,7 @@ Variables  ./robotframework/variables/credentials.py
 ${DEFAULT_AI_MODE}  Flexible
 ${BROWSER_WAIT}  2
 
-${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}/stock.quant.xlsx
+${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}stock.quant.xlsx
 
 
 *** Test Cases ***
@@ -16,7 +16,7 @@ CiclAI Stock
     [Documentation]  Creacion de excel para hacer el control de stock. Se usan las páginas de Odoo y Amazon.
 
     Comment  Obtener inventario de Odoo
-    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}/downloads
+    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
     New Context    acceptDownloads=${TRUE}
     Wait New Page       https://backoffice.ciclozero.com/  wait=${3}
     
@@ -36,7 +36,7 @@ CiclAI Stock
     AI.Click on select all box in the table
 
     Comment  Descargar excel
-    ${dl_promise}  Promise To Wait For Download    saveAs=${OUTPUT_DIR}/downloads/stock.quant.xlsx
+    ${dl_promise}  Promise To Wait For Download    saveAs=${OUTPUT_DIR}${/}downloads${/}stock.quant.xlsx
     AI.Click to download icon above the table
     ${file_obj}  Wait For  ${dl_promise}
 
