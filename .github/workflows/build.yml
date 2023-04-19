@@ -45,7 +45,7 @@ jobs:
         git config --global user.name "GitHub Actions"
         git add .
         git commit -m "Add latest package"
-        GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git push
+        GIT_SSH_COMMAND="ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no" git push --set-upstream origin master
       shell: /usr/bin/bash -e {0}
 
     - name: Upload Python package
