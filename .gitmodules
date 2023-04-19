@@ -1,3 +1,0 @@
-[submodule "paddle-ocr"]
-	path = paddle-ocr
-	url = git@github.com:DavidCorreas/paddle-ocr.git
