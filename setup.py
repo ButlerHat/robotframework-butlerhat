@@ -29,7 +29,7 @@ setup_kwargs = {
     "author_email": "d.correas.oliver@gmail.com",
     "maintainer": None,
     "maintainer_email": None,
-    "url": "https://github.com/DavidCorreas/IA4RobotFramework",
+    "url": "",
     "packages": packages,
     "install_requires": install_requires,
     "entry_points": {"console_scripts": ["rfbrowser=Browser.entry:main"]},

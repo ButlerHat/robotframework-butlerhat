@@ -4,7 +4,7 @@ Variables  ./variables/credentials.py
 
 
 *** Variables ***
-${OUTPUT_DIR}  /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/TestSuites/CicloZero/data
+${OUTPUT_DIR}  /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero/data
 
 
 *** Test Cases ***
