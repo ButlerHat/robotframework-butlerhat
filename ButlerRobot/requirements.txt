@@ -1,3 +1,4 @@
+wheel
 robotframework-browser
 robotframework-seleniumlibrary
 fastdeploy-python
