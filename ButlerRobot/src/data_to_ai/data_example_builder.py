@@ -5,7 +5,7 @@ from .data_types import AIExample, PromptStep
 
 class AIExampleBuilder:
     """
-    Build all UDOP examples from a task.
+    Build all Dataset examples from a task.
     """
     def __init__(self, task: Task, history_with_tasks: bool = False):
         self.task = task
@@ -35,7 +35,7 @@ class AIExampleBuilder:
 
     def build(self, ignore_scrolls: bool = True) -> 'list[AIExample]':
         """
-        Build all UDOP examples from a task. For dataset creation.
+        Build all Dataset examples from a task.
         """
         examples = []
 

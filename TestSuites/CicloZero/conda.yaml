@@ -14,7 +14,7 @@ dependencies:
   - pip:
       # Define pip packages here -> https://pypi.org/
       # Install robotframework-butlerhat-0.1.tar.gz
-      - /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/dist/robotframework-butlerhat-0.2.tar.gz
+      - /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat/dist/robotframework-butlerhat-0.2.tar.gz
 
 rccPostInstall:
   - rfbrowser init                    # Initialize Playwright

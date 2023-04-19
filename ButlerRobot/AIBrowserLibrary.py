@@ -57,8 +57,8 @@ class AIBrowserLibrary(DataBrowserLibrary):
 
     def __init__(
             self, 
-            ai_url='http://nginx_udop:5000/predict_rf', 
-            ocr_url="http://nginx_udop:80/fd/ppocrv3",
+            ai_url='http://nginx_alfred:5000/predict_rf', 
+            ocr_url="http://nginx_alfred:80/fd/ppocrv3",
             max_steps=5, 
             with_tasks=False, 
             fix_bbox=False,

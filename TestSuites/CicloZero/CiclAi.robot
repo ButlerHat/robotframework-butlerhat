@@ -5,7 +5,7 @@ Variables  ./robotframework/variables/credentials.py
 
 
 *** Variables ***
-# ${ROBOT_DIR}  /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat/TestSuites/CicloZero/robotframework
+# ${ROBOT_DIR}  /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero/robotframework
 # ${OUTPUT_DIR}  ${ROBOT_DIR}/output
 ${DEFAULT_AI_MODE}  Flexible
 

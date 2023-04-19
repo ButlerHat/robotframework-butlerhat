@@ -48,7 +48,7 @@ RUN wget -O /tmp/geckodriver.tar.gz https://github.com/mozilla/geckodriver/relea
 RUN tar -xf /tmp/geckodriver.tar.gz -C /usr/local/bin/
 
 # Install ButlerRobot and dependencies. The package ButlerRobot install all dependencies in the setup.py
-COPY . /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
-RUN chown -R $UNAME:$UNAME /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
+COPY . /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat
+RUN chown -R $UNAME:$UNAME /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat
 USER $UNAME
-RUN pip install -e /workspaces/udop/i-Code-Doc/IA4RobotFramework/robotframework-butlerhat
+RUN pip install -e /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat
