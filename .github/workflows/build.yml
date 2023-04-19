@@ -35,7 +35,11 @@ jobs:
     - name: Copy package to submodule directory
       run: |
         cd robotframework-dist-butlerhat/
-        git checkout master
+        if ! git show-ref --quiet refs/heads/master; then
+            git checkout -b master
+        else
+            git checkout master
+        fi
         cp ../dist/*.tar.gz .
         git config --global user.email "actions@github.com"
         git config --global user.name "GitHub Actions"
