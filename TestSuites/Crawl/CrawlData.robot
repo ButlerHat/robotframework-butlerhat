@@ -4,7 +4,7 @@ Library   ButlerRobot.AIBrowserLibrary  AS  Browser
 Library      ButlerRobot.CrawlLibrary  AS  CrawlLibrary
 
 *** Variables ***
-${OUTPUT_DIR}   /workspaces/ia-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/Crawl
+${OUTPUT_DIR}   /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/Crawl
 
 *** Test Cases ***
 
