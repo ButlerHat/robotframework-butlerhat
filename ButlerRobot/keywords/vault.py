@@ -61,3 +61,10 @@ def get_credentials(password: str, credentials: dict):
     for key, value in credentials.items():
         credentials[key] = decrypt(password, value)
     return credentials
+
+
+if __name__ == '__main__':
+    import os
+    password = os.getenv('ROBOT_CICLOZERO_PASS')
+    assert password, 'Password not found. Define ROBOT_CICLOZERO_PASS environment variable or set it as variable.'
+    print('password: ' + password)
