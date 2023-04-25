@@ -1,80 +1,36 @@
 *** Settings ***
-Library    ButlerRobot.AIBrowserLibrary  record=${True}  output_path=${OUTPUT_DIR}${/}..${/}data  WITH NAME  Browser 
-Library    ./robotframework/keywords/count_excel.py
-Library    OTP
-Resource   ./robotframework/modeling/resources/CrawlAmazon.resource
-Variables  ./robotframework/variables/credentials.py
+Library  OTP
+Library  Dialogs
+Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Resource  ./resources/CrawlAmazon.resource
+Variables  ../variables/credentials.py
 Suite Setup  Browser.Add Task Library    CrawlAmazon
 
 
 *** Variables ***
-${OUTPUT_DIR}  /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero
-${DEFAULT_AI_MODE}  Flexible
-${BROWSER_WAIT}  2
-
+${OUTPUT_DIR}  /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero/data
 ${URL_AMAZON}  https://sellercentral.amazon.es/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fsellercentral.amazon.es%2Fhome&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=sc_es_amazon_v2&openid.mode=checkid_setup&language=es_ES&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&pageId=sc_es_amazon_v2&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&ssoResponse=eyJ6aXAiOiJERUYiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiQTI1NktXIn0.u8j_3kfAPRO9oea7TATYwCAdOKehZfRhKktBjgJlntMm6nulCn1qEg.B2O2NQ1GNLUmz9NH.cjghNVWhLvzDMxogLdKHIvb87caY5OMLYZheHT6HHz3k088JtfZnEGHu8fk8e_IFDIpVNxqqHzR8JcyQjX1b5SwxquNbOpmt5cnMPZ5pgqpf0pbcHi8-TrhHtZ2XJjSDaSwqYkPTP6oEJKgc6fDOGcJsXOPPXTJc6ZT71ZHEX1R8j94ipHBM6qer4vruZRBYMAdZVaFP.K5bI5NZ7lJG0ObtQQymgtA
-# ${ROBOT_CICLOZERO_PASS}  ..
-
-${RESULT_EXCEL_PATH_ODOO}  ${OUTPUT_DIR}${/}stock.quant.xlsx
-${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}  ${OUTPUT_DIR}${/}stock.quant.amz.unshipped.xlsx
-${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}stock.quant.full.xlsx
+${ROBOT_CICLOZERO_PASS}  V6#hYk$3YkAWs5XrJnbG$Z!ue#s
 
 
 *** Test Cases ***
-CiclAI Stock
-    [Documentation]  Creacion de excel para hacer el control de stock. Se usan las páginas de Odoo y Amazon.
-    # ================== Odoo ==================
-    ${return_excel}  Get Stocks Odoo
-
-    Comment  Contar numero de veces que se repite cada modelo
-    Create Excel    ${return_excel}    ${RESULT_EXCEL_PATH_ODOO}
-    Log  Excel creado satisfactoriamente en ${RESULT_EXCEL_PATH_ODOO}  console=${TRUE}
-    
-    # ================== Amazon Unshipped ==================
-    ${amazon_tsv_obj}  Get Unshipped Amazon
-    Append Tsv To Main Excel    ${amazon_tsv_obj.saveAs}    ${return_excel}    ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}
-    Log  Excel creado satisfactoriamente en ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}  console=${TRUE}
-    
-
-*** Keywords ***
-Get Stocks Odoo
-    Comment  Obtener inventario de Odoo
-    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
-    New Context    acceptDownloads=${TRUE}
-    Wait New Page       https://backoffice.ciclozero.com/  wait=${3}
-    
-    Comment  Acceder a informe de inventario
-    AI Critical.Click on "Identificarse"
-    AI.Login with user ${odoo_user} and pass ${odoo_pass}
-    AI.Go to menu icon at the top left
-    AI Critical.Go to inventario
-    AI Critical, Wait 2.Click on "informes" in the top menu
-    AI Critical.Click on "Informe de inventario" in informes submenu
-    
-    Comment  Marcar todos los registros de la tabla
-    AI.Select view pivot icon at the top right of the table
-    AI Critical.Click on "Total" in the first row
-    AI.Click on left right arrow icon under actualizar la cantidad
-    AI.Click on cell in the Alm/Stock venta row and column Total
-    AI.Click on select all box in the table
-
-    Comment  Descargar excel
-    ${dl_promise}  Promise To Wait For Download    saveAs=${OUTPUT_DIR}${/}downloads${/}stock.quant.xlsx
-    Click to download icon above the table
-    ${odoo_excel_obj}  Wait For  ${dl_promise}
-
-    RETURN  ${odoo_excel_obj.saveAs}
-
-
-Get Unshipped Amazon
-    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
-    New Context    acceptDownloads=${TRUE}
-    Wait New Page   ${URL_AMAZON}  wait=${1}
-
+SelectAMerchant
+    Open Browser  ${URL_AMAZON}  pause_on_failure=${FALSE}
     Login with user ${amazon_user} and pass ${amazon_pass}
-    AI Strict.Click on Indicar contraseña de un solo uso desde la app de verificación
-    AI Strict.Click on "Enviar contraseña de un solo uso"
+    ${otp_key}=    Get OTP    ${otp_amazon}
+    Should Match Regexp       ${otp_key}        \\d{6}
+    Type number "${otp_key}" in field Indicar contraseña de un solo uso
+    Check "No vuelvas a pedir un codigo en este navegador"
+    Click on "Iniciar sesion"
 
+    FOR  ${country}  IN  Spain  Germany  France  Italy  United Kingdom  United States  Japan  Canada  Mexico  Belgium  Australia  Netherlands  Sweden  Poland
+        Scroll in Select Account until "${country}" is visible and click
+        No Record Scroll Up
+    END
+
+Modelate Table
+    Open Browser  ${URL_AMAZON}  pause_on_failure=${FALSE}
+    Login with user ${amazon_user} and pass ${amazon_pass}
     ${otp_key}=    Get OTP    ${otp_amazon}
     Should Match Regexp       ${otp_key}        \\d{6}
     Type number "${otp_key}" in field Indicar contraseña de un solo uso
@@ -89,7 +45,43 @@ Get Unshipped Amazon
 
     Click on "Unshipped Orders" in the menu
     Click on "Request" yellow button
+    Click at "Refresh" button at the top right of the table
 
+    FOR  ${ord_num}  IN  first  second  third  fourth  fifth  sixth  seventh  eighth  ninth  tenth
+        FOR  ${column}  IN  Report Type  Batch ID  Date Range Covered  Date and Time Requested  Date and Time Completed  Report Status  Download
+            ${bbox}  Get element bouding box at ${ord_num} row and "${column}" column at Download Report table
+            ${txt}  Get Text From Bbox    selector_bbox=${bbox}
+            Log To Console    ${txt}
+        END
+    END
+
+
+CiclAI Amazon Unshipped
+    Comment  Obtener inventario de Odoo
+    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
+    New Context    acceptDownloads=${TRUE}
+    Wait New Page   ${URL_AMAZON}  wait=${1}
+
+    Login with user ${amazon_user} and pass ${amazon_pass}
+    AI Strict.Click on Indicar contraseña de un solo uso desde la app de verificación
+    AI Strict.Click on "Enviar contraseña de un solo uso"
+    
+    ${otp_key}=    Get OTP    ${otp_amazon}
+    Should Match Regexp       ${otp_key}        \\d{6}
+    Type number "${otp_key}" in field Indicar contraseña de un solo uso
+    Check "No vuelvas a pedir un codigo en este navegador"
+    Click on "Iniciar sesion"
+    Scroll in Select Account until "Spain" is visible and click
+    Click on "Select Account"
+
+    Click on menu icon at top left
+    Click on "Orders" menu at the left
+    Click on "Orders Report" submenu
+
+    Click on "Unshipped Orders" in the menu
+    # Click on "Request" yellow button
+
+    Set Browser Timeout    timeout=16m
     ${dl_promise}  Promise To Wait For Download    saveAs=${OUTPUT_DIR}${/}downloads${/}unshipped.xlsx
     ${init_time}  Evaluate  time.time()
     WHILE  ${TRUE}
@@ -131,10 +123,4 @@ Get Unshipped Amazon
     END
 
     Comment  Descargar tsv. Esperar a que se descargue
-    ${amazon_tsv_obj}  Wait For  ${dl_promise}
-
-    RETURN  ${amazon_tsv_obj}
-
-
-Click to download icon above the table
-    Click  //button[@title="Exportar Todo"]
+    ${file_obj}  Wait For  ${dl_promise}

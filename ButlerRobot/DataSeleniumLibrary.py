@@ -115,9 +115,8 @@ class DataSeleniumLibrary(DataWrapperLibrary):
         except:
             return None, None
 
-    def _get_viewport_loc(self) -> dict:
+    def _get_viewport(self) -> dict:
         viewport: dict = self._library.execute_javascript('return {width: window.innerWidth, height: window.innerHeight}')
-        viewport.update(self._library.execute_javascript('return {x: window.scrollX, y: window.scrollY}'))
         return viewport
     
     # def _remove_action(self):

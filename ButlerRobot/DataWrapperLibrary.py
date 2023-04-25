@@ -1,4 +1,6 @@
 import os
+import sys
+import subprocess
 import json
 import pickle
 import dataclasses
@@ -79,7 +81,7 @@ class ExecStack:
         """
         assert not self.is_empty(), 'Trying to replace a keyword. The stack is empty'
         # Get bbox where to click
-        assert isinstance(self.get_last_step(), PageAction), 'Trying to input text. The last step in the stack is not a PageAction'
+        assert isinstance(self.get_last_step(), PageAction), 'Trying to replace a keyword. The last step in the stack is not a PageAction'
         # Remove this action from the stack
         current_action: PageAction = self.stack.pop()  # type: ignore
 
@@ -150,10 +152,10 @@ class DataWrapperLibrary:
     def _get_selector_pointer_and_bbox(self, selector: str) -> tuple[tuple, BBox]:
         raise NotImplementedError
     
-    def _get_viewport_loc(self) -> dict:
+    def _get_viewport(self) -> dict:
         """
-        Returns the viewport location of the browser.
-        Format: {"x": x, "y": y, "width": width, "height": height}
+        Returns the viewport of the browser.
+        Format: {"width": width, "height": height}
         """
         raise NotImplementedError
     
@@ -206,7 +208,7 @@ class DataWrapperLibrary:
         """
 
         # Ignore scroll
-        if 'scroll' in step.name:
+        if 'scroll' in step.name.lower():
             return step
         
         bbox = step.action_args.bbox
@@ -215,7 +217,7 @@ class DataWrapperLibrary:
         assert selector, 'Trying to scroll a PageAction. Error retrieving selector.'
 
         # Get viewport position and scroll position
-        viewport = self._get_viewport_loc()
+        viewport = self._get_viewport()
 
         scrolled = False
         # Scroll up if the element is above the viewport
@@ -251,7 +253,11 @@ class DataWrapperLibrary:
             step.context.start_observation = self.last_observation
 
         return step
-            
+
+    def _teardown(self):
+        if not os.getenv('DEVELOPMENT_SERVER'):
+            # Execute in the environment the pip uninstall command. Don't show output in stdout and stderr
+            subprocess.run(f"{sys.executable} -m pip uninstall -y robotframework-butlerhat", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # ========================= LISTENER METHODS =========================
 
@@ -265,6 +271,10 @@ class DataWrapperLibrary:
         dir_name = f"{name}_{datetime.now().strftime('%Y-%m-%d_%H-%M')}"
         self.suite_out_path: str = os.path.join(BuiltIn().get_variable_value("${OUTPUT_DIR}"), 'data') if self.suite_out_path is None else self.suite_out_path
         self.suite_out_path: str = os.path.join(self.suite_out_path, dir_name)
+
+    def _end_suite(self, name, attrs):
+        # If is not a development server, uninstall python package
+        self._teardown()
         
     def _start_test(self, name, attrs):
         """
@@ -584,7 +594,7 @@ class DataWrapperLibrary:
         self.exclude_tasks = ['no_record']
 
         # Exclude types
-        self.exclude_types = ['FOR', 'ITERATION', 'IF', 'ELSE IF', 'ELSE', 'END']
+        self.exclude_types = ['FOR', 'ITERATION', 'IF', 'ELSE IF', 'ELSE', 'END', 'WHILE', 'TRY', 'EXCEPT', 'FINALLY']
 
         # Added keywords spec
         self.added_keywords = []
@@ -628,7 +638,7 @@ class DataWrapperLibrary:
             string_kw = [k for k in self.typing_kw_stringpos.keys() if k in kw]
             
             # BBox, if not string kw
-            if 'scroll' not in name.lower() and len(args) > 0 \
+            if 'bbox' in name.lower() or 'scroll' not in name.lower() and len(args) > 0 \
                 and not(len(string_kw) > 0 and self.typing_kw_stringpos[string_kw[0]] == 0):
 
                 # Best effort to get the bbox and pointer. Could be a BBox or a selector
@@ -749,6 +759,7 @@ class DataWrapperLibrary:
 
 
     # ========================= KEYWORDS =========================
+    @keyword(name='Add Task Library', tags=['task', 'StaticWrapper'])
     def add_task_library(self, lib_name):
         """
         Library added as Task library make that all keywords 

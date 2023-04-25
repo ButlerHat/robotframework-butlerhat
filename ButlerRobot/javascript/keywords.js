@@ -91,7 +91,42 @@ async function getElementBboxHighlighted(page) {
       });
     });
   }
+
+  
+  async function getTextFromPoint(args, page) {
+    // Get all the text from the element and its children recursively
+    return new Promise(async (resolve, reject) => {
+      try {
+        let text = await page.evaluate((args) => {
+          console.log(args[0].toString());
+          console.log(args[1].toString());
+          let element = document.elementFromPoint(args[0], args[1]);
+          let text = "";
+  
+          function getText(element) {
+            console.log(element);
+            if (element.nodeType === Node.TEXT_NODE) {
+              return "";
+            } else {
+              text += element.innerText || "";
+            }
+            for (let child of element.childNodes) {
+              text += getText(child);
+            }
+            return text;
+          }
+  
+          return getText(element);
+        }, args);
+  
+        resolve(text);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
   
 
   exports.__esModule = true;
   exports.getElementBboxHighlighted = getElementBboxHighlighted;
+  exports.getTextFromPoint = getTextFromPoint;

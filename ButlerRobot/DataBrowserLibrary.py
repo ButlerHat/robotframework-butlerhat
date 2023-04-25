@@ -1,18 +1,20 @@
 import base64
 import datetime
 import os
-from io import BytesIO
 import random
+from io import BytesIO
+from .src.utils.ocr import get_all_text
+from collections import namedtuple
 from typing import Optional, Union
 from PIL import Image
 from Browser import Browser, KeyboardModifier, MouseButton
 from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails
+from Browser.utils.data_types import ScreenshotReturnType
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
-from ButlerRobot.src.data_types import BBox, SaveStatus
-from backports.cached_property import cached_property
+from ButlerRobot.src.data_types import BBox, PageAction, SaveStatus
 
         
 class DataBrowserLibrary(DataWrapperLibrary):
@@ -61,7 +63,6 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # ==== Added Keywords ====
         # To add functions to the library
         self.added_keywords.extend(['click_at_bbox'])
-        self.added_keywords.extend(['scroll_down'])
         
         self._click_at_bbox_rf = {
             'args': ['selector_bbox', ('wait_after_click', 2.0)],
@@ -70,28 +71,14 @@ class DataBrowserLibrary(DataWrapperLibrary):
             'doc': self.click_at_bbox.__doc__.strip() if self.click_at_bbox.__doc__ else '',
             'source': f'{self.click_at_bbox.__code__.co_filename}:{self.click_at_bbox.__code__.co_firstlineno}'
         }
-        self._scroll_down_rf = {
-            'args': ['pixels_selector'],
-            'types': [Union[int, str]],
-            'tags': ['ActionWrapper'],
-            'doc': self.scroll_down.__doc__.strip() if self.scroll_down.__doc__ else '',
-            'source': f'{self.scroll_down.__code__.co_filename}:{self.scroll_down.__code__.co_firstlineno}'
-        }
 
     
     # ======= Overrides =======
     def _scroll_to_top(self):
         self._library.scroll_by(selector=None, vertical='-100%')
 
-    def _get_viewport_loc(self) -> dict:
-        v: dict = self._library.get_scroll_position()
-        # Change {top, left, bottom, right} to {y, x, height, width}
-        viewport = {}
-        viewport['height'] = v['bottom']
-        viewport['width'] = v['right']
-        viewport['y'] = v['top']
-        viewport['x'] = v['left']
-        return viewport
+    def _get_viewport(self) -> dict:
+        return self._library.get_viewport_size()
 
     def _run_scroll(self, selector: str) -> None:
         BuiltIn().run_keyword('Scroll Down', selector)
@@ -235,20 +222,179 @@ class DataBrowserLibrary(DataWrapperLibrary):
         
         self._library.mouse_button(MouseButtonAction.click, middle_coordinates[0], middle_coordinates[1])
 
-    def scroll_down(self, pixels_selector: Union[int, str], seed: int = -1):
+    @keyword(name="Scroll Down", tags=("action", "PageContent"))
+    def scroll_down(self, pixels_selector: Union[int, str, None] = None, seed: int = -1):
         """
         Scroll down the page.
         Param pixels: Number of pixels to scroll down.
         """
-        if isinstance(pixels_selector, int):
+        # Run Scroll with pixels. If is an int or starts with a number
+        if isinstance(pixels_selector, int) or (isinstance(pixels_selector, str) and pixels_selector[0].isdigit()):
             self._library.scroll_by(vertical=pixels_selector)  # type: ignore
+            return
+
+        if seed == -1:
+            seed = BuiltIn().get_variable_value('${SEED}', random.randint(0, 100))
+        random.seed(seed)
+        height = self._library.get_viewport_size()['height']
+
+        # Try with locator
+        if pixels_selector:
+            bbox, _ = self._get_bbox_and_pointer(pixels_selector)
+            viewport_height = self._library.get_viewport_size()['height']
+            if bbox:
+                pixels = (bbox.y + bbox.height) - viewport_height + random.randint(0, height//8)
+                self.scroll_down(pixels)
+                return
+            else:
+                BuiltIn().fail(f'Error at Scroll Down. Selector {pixels_selector} not found or does not have bbox.')
+
+        # Scroll down a random number of pixels
         else:
-            if seed == -1:
-                seed = BuiltIn().get_variable_value('${SEED}', random.randint(0, 100))
-            random.seed(seed)
-            height = self._library.get_viewport_size()['height']
             pixels = random.randint(0, height//2)
             self.scroll_down(pixels)
+        
+    @keyword(name='Scroll Down At BBox', tags=['action', 'ActionWrapper'])
+    def scroll_at_bbox(self, selector_bbox: BBox | str, offset: int = 100):
+        """
+        Record a click event with no xpath selector. This keyword go throught WrapperLibrary middleware as PageAction.
+        """
+        bbox: BBox | None = None
+        # Check if is a locator and convert to BBox
+        if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
+            curr_step = self.exec_stack.get_last_step()
+            assert isinstance(curr_step, PageAction)
+            assert curr_step.action_args.bbox, 'Error at Scroll in BBox. Trying to scroll element. The PageAction has no bbox'
+            bbox = curr_step.action_args.bbox
+            # Update the locator to build the dataset
+            curr_step.action_args.selector_dom = str(bbox)
+
+        elif isinstance(selector_bbox, str):
+            bbox = BBox.from_rf_string(selector_bbox)
+        else:
+            bbox = selector_bbox
+       
+        assert bbox, 'Error at Scroll in BBox. Trying to scroll element. The PageAction has no bbox'
+        # Get the middle of the bbox
+        top_left = (bbox.x, bbox.y)
+        w = bbox.width
+        h = bbox.height
+        middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
+
+        self._library.mouse_move(middle_coordinates[0], middle_coordinates[1])
+        self._library.mouse_wheel(0, offset)
+
+    @keyword(name='Scroll Up At BBox', tags=['action', 'ActionWrapper'])
+    def scroll_up_at_bbox(self, selector_bbox: BBox | str, offset: int = 100):
+        """
+        Record a click event with no xpath selector. This keyword go throught WrapperLibrary middleware as PageAction.
+        """
+        bbox: BBox | None = None
+        # Check if is a locator and convert to BBox
+        if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
+            curr_step = self.exec_stack.get_last_step()
+            assert isinstance(curr_step, PageAction)
+            assert curr_step.action_args.bbox, 'Error at Scroll in BBox. Trying to scroll element. The PageAction has no bbox'
+            bbox = curr_step.action_args.bbox
+            # Update the locator to build the dataset
+            curr_step.action_args.selector_dom = str(bbox)
+
+        elif isinstance(selector_bbox, str):
+            bbox = BBox.from_rf_string(selector_bbox)
+        else:
+            bbox = selector_bbox
+       
+        assert bbox, 'Error at Scroll in BBox. Trying to scroll element. The PageAction has no bbox'
+        # Get the middle of the bbox
+        top_left = (bbox.x, bbox.y)
+        w = bbox.width
+        h = bbox.height
+        middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
+
+        self._library.mouse_move(middle_coordinates[0], middle_coordinates[1])
+        self._library.mouse_wheel(0, -offset)
+
+    @keyword(name='Is Text Visible', tags=['tesk', 'no_record'])
+    def is_text_visible(self, text: str, selector: str | None = None) -> bool:
+        """
+        Check if text is visible in the page.
+        Param text: Text to search.
+        Param selector: Selector to search in.
+        """
+        img = None
+        if selector:
+            bbox, _ = self._get_bbox_and_pointer(selector)
+            if bbox:
+                img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
+
+        if not img:
+            img = self._library.take_screenshot(return_as=ScreenshotReturnType.base64)
+
+        element_txt = get_all_text(self.ocr_url, img)
+
+        return text in element_txt if element_txt else False
+
+    @keyword(name="Element BBox", tags=['action', 'PageContent'])
+    def get_element_bbox(self, selector_bbox: BBox | str) -> BBox:
+        """
+        Get the bounding box of an element. Dummy instruction for the dataset.
+        Param selector: Selector of the element.
+        """
+        bbox: BBox | None = None
+        # Check if is a locator and convert to BBox
+        if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
+            curr_step = self.exec_stack.get_last_step()
+            assert isinstance(curr_step, PageAction)
+            assert curr_step.action_args.bbox, 'Error Getting element. Trying to get element bbox from stack. The PageAction has no bbox'
+            bbox = curr_step.action_args.bbox
+            # Update the locator to build the dataset
+            curr_step.action_args.selector_dom = str(bbox)
+
+        elif isinstance(selector_bbox, str):
+            bbox = BBox.from_rf_string(selector_bbox)
+        else:
+            bbox = selector_bbox
+
+        return bbox
+    
+    @keyword(name="Get Text From BBox", tags=['task', 'no_record'])
+    def get_text_from_bbox(self, selector_bbox: BBox | str) -> str:
+        """
+        Get the text from a BBox.
+        Param selector: Selector of the element.
+        """
+        bbox: BBox | None = None
+        # Check if is a locator and convert to BBox
+        if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
+            curr_step = self.exec_stack.get_last_step()
+            assert isinstance(curr_step, PageAction)
+            assert curr_step.action_args.bbox, 'Error Getting Text From BBox. Trying to get element bbox from stack. The PageAction has no bbox'
+            bbox = curr_step.action_args.bbox
+            # Update the locator to build the dataset
+            curr_step.action_args.selector_dom = str(bbox)
+
+        elif isinstance(selector_bbox, str):
+            bbox = BBox.from_rf_string(selector_bbox)
+        else:
+            bbox = selector_bbox
+        
+        # Get the middle of the bbox
+        top_left = (bbox.x, bbox.y)
+        w = bbox.width
+        h = bbox.height
+        point = namedtuple('Point', ['x', 'y'])
+        middle_coordinates = point(top_left[0] + w//2, top_left[1] + h//2)
+        view_port = self._library.get_viewport_size()
+        if middle_coordinates.x > view_port.width or middle_coordinates.y > view_port.height:
+            BuiltIn().log(f'Error at Get Text From BBox. The bbox is out of the viewport. BBox: {bbox.to_dict()}', 'WARN', console=True)
+            return ''
+        text = self._library.getTextFromPoint(middle_coordinates.x, middle_coordinates.y)
+        if not text:
+            img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
+            text = get_all_text(self.ocr_url, img)
+        if not text:
+            text = ''
+        return text
 
     @keyword(name='Record Click', tags=['task', 'only_substeps'])
     def record_click(self):
@@ -266,3 +412,29 @@ class DataBrowserLibrary(DataWrapperLibrary):
             self.fix_bbox = curr_val_fix_bbox
         
         BuiltIn().log_to_console(f'Click at BBox  {str(bbox)}')
+
+    @keyword(name='Record Scroll', tags=['task', 'only_substeps'])
+    def record_scroll(self):
+        """
+        Record a scroll in the screen. This action only make sense in the interpreter.
+        """
+        bounding_rect: dict = self._library.getElementBboxHighlighted()
+        bbox: BBox = BBox(bounding_rect['left'], bounding_rect['top'], bounding_rect['width'], bounding_rect['height'])
+
+        curr_val_fix_bbox = self.fix_bbox if hasattr(self, 'fix_bbox') else False
+        self.fix_bbox = False
+        try:
+            BuiltIn().run_keyword('Scroll At BBox', bbox)
+        finally:
+            self.fix_bbox = curr_val_fix_bbox
+
+        BuiltIn().log_to_console(f'Scroll at BBox  {str(bbox)}')
+
+    @keyword(name='Record BBox', tags=['action', 'no_record'])
+    def record_bbox(self) -> BBox:
+        """
+        Record a BBox in the screen. This action only make sense in the interpreter.
+        """
+        bounding_rect: dict = self._library.getElementBboxHighlighted()
+        bbox: BBox = BBox(bounding_rect['left'], bounding_rect['top'], bounding_rect['width'], bounding_rect['height'])
+        return bbox
