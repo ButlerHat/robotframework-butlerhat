@@ -1,5 +1,6 @@
 *** Settings ***
 Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Library   ../../keywords/utils.py
 
 
 *** Keywords ***
@@ -71,8 +72,61 @@ Click at "download" button at ${ordinal_num} row at Download Report table
     &{num_dict}  Create Dictionary   first=2  second=3  third=4  fourth=5  fifth=6  sixth=7  seventh=8  eighth=9  ninth=10  tenth=11
     Click  //html/body/div[1]/div[2]/div[1]/div/div/div[2]/div[2]/div/div/div[4]/table/tr[${num_dict["${ordinal_num}"]}]/td[7]//a
 
-# ===== No record Keywords =====
+# ====== Pendiente Keywords ======
+Click "Manage orders" submenu
+    Click  //html/body/div/div[1]/div/div[1]/div[3]/div[3]/div/div[1]/div[2]/div/div[4]/div[2]/div[2]/a/div[1]
 
+Click on "Pending" tab
+    Click  //div[@class='myo-spa-tab '][.//a[@data-test-id='tab-/mfn/pending']]
+
+Change Results per page to ${num}
+    Change Results per page
+    Set Results per page to ${num}
+
+Change Results per page
+    Click  //*[@id='a-autoid-1-announce']
+
+Set Results per page to ${num}
+    &{num_dict}  Create Dictionary   15=0  25=1  50=2  100=3
+    Click  //*[@id='myo-table-results-per-page_${num_dict["${num}"]}']
+
+How many orders are Pending?
+    [Documentation]  The pending tab must be active
+    ${bbox}  Get Element Bounding Box of the "Pending" tab    
+    ${txt}  Get Text From Bbox    selector_bbox=${bbox}
+    RETURN  ${txt.split('\n')[0].strip()}
+
+Get Element Bounding Box of the "Pending" tab
+    ${bbox}  Element Bbox  //div[contains(@class, 'active')]
+    RETURN  ${bbox}
+
+Which is the SKU of the ${ord_num} order?
+    [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
+    ${sku_bbox}  Get element bounding box of the sku of the ${ord_num} order
+    ${sku}  Get Text From Bbox    selector_bbox=${sku_bbox}
+    # Remove the "SKU: " part
+    RETURN  ${sku.replace('SKU', "").replace(':', "").strip()}
+
+Get element bounding box of the sku of the ${ord_num} order
+    [Documentation]  Get the element sku bounding box. If you want to give a clue to the AI you can set "${NEXT_OBSERVATION}" variable.
+    IF  "${NEXT_OBSERVATION}"  Observation  ${NEXT_OBSERVATION}
+    ${num}  Get Cardinal  ${ord_num}
+    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[${num}]//span[contains(text(), 'SKU')]/..
+    RETURN  ${bbox}
+
+Which quantity has the order with sku ${sku}?
+    [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
+    ${qty_bbox}  Get element bounding box of the quantity of the order with SKU ${sku}
+    ${qty}   Get Text From Bbox    selector_bbox=${qty_bbox}
+    # Remove the "Quantity: " part
+    RETURN  ${qty.split(':')[-1].strip()}
+
+Get element bounding box of the quantity of the order with SKU ${sku}
+    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[.//*[contains(., '${sku}')]]//span[contains(text(), 'Quantity')]/..
+    RETURN  ${bbox}
+
+
+# ===== No record Keywords =====
 No Record Scroll Up
     [Tags]  no_record
     Scroll Up At Bbox    //*[@id="picker-container"]/div/div[2]/div/div[3]  1000

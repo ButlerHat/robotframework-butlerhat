@@ -93,33 +93,46 @@ async function getElementBboxHighlighted(page) {
   }
 
   
-  async function getTextFromPoint(args, page) {
-    // Get all the text from the element and its children recursively
+  async function getTextFromBboxWithJs(args, page) {
+    // args = [x1, y1, x2, y2]
     return new Promise(async (resolve, reject) => {
       try {
-        let text = await page.evaluate((args) => {
-          console.log(args[0].toString());
-          console.log(args[1].toString());
-          let element = document.elementFromPoint(args[0], args[1]);
-          let text = "";
-  
-          function getText(element) {
-            console.log(element);
-            if (element.nodeType === Node.TEXT_NODE) {
-              return "";
-            } else {
-              text += element.innerText || "";
+        let text_array = await page.evaluate((args) => {
+          let [x1, y1, x2, y2] = args;
+          let elements = [];
+          let text_array = [];
+          
+          for (let x = x1; x < x2; x=x+5) {
+            for (let y = y1; y < y2; y=y+5) {
+              const element = document.elementFromPoint(x, y);
+              if (element && !elements.includes(element)) {
+                elements.push(element);
+              }
             }
-            for (let child of element.childNodes) {
-              text += getText(child);
-            }
-            return text;
           }
-  
-          return getText(element);
+
+          function getTextArray(element) {
+            if (element.nodeType === Node.TEXT_NODE) {
+              //trim whitespace
+              let text_content = element.textContent.trim();
+              console.log("Adding text: " + text_content)
+              //check if text array has the text already
+              if (text_array.indexOf(text_content) === -1)
+                text_array.push(text_content);
+            } else {
+              for (let child of element.childNodes) {
+                getTextArray(child);
+              }
+            }
+          }
+          
+          for (let i = 0; i < elements.length; i++) {
+            getTextArray(elements[i]);
+          }
+          return text_array;
         }, args);
   
-        resolve(text);
+        resolve(text_array);
       } catch (error) {
         reject(error);
       }
@@ -129,4 +142,4 @@ async function getElementBboxHighlighted(page) {
 
   exports.__esModule = true;
   exports.getElementBboxHighlighted = getElementBboxHighlighted;
-  exports.getTextFromPoint = getTextFromPoint;
+  exports.getTextFromBboxWithJs = getTextFromBboxWithJs;

@@ -3,6 +3,7 @@ import datetime
 import os
 import random
 from io import BytesIO
+from enum import Enum, auto
 from .src.utils.ocr import get_all_text
 from collections import namedtuple
 from typing import Optional, Union
@@ -16,7 +17,13 @@ import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
 from ButlerRobot.src.data_types import BBox, PageAction, SaveStatus
 
+
+class TextType(Enum):
+    """Enum that represents if the action is flexible, strict or critical"""
+    array = auto()
+    string = auto()
         
+
 class DataBrowserLibrary(DataWrapperLibrary):
 
     # Capture args and kwargs for the DataBrowserLibrary
@@ -58,7 +65,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self.action_tags = ['PageContent', 'ActionWrapper']
         self.exclude_tags = ['Wait']
 
-        self.typing_kw_stringpos = {'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'presskeys': ':1'}
+        self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'presskeys': ':1'}
         
         # ==== Added Keywords ====
         # To add functions to the library
@@ -358,7 +365,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return bbox
     
     @keyword(name="Get Text From BBox", tags=['task', 'no_record'])
-    def get_text_from_bbox(self, selector_bbox: BBox | str) -> str:
+    def get_text_from_bbox(self, selector_bbox: BBox | str, return_type: TextType = TextType.string) -> str:
         """
         Get the text from a BBox.
         Param selector: Selector of the element.
@@ -379,21 +386,21 @@ class DataBrowserLibrary(DataWrapperLibrary):
             bbox = selector_bbox
         
         # Get the middle of the bbox
-        top_left = (bbox.x, bbox.y)
-        w = bbox.width
-        h = bbox.height
-        point = namedtuple('Point', ['x', 'y'])
-        middle_coordinates = point(top_left[0] + w//2, top_left[1] + h//2)
+        bottom_right = (bbox.x + bbox.width, bbox.y + bbox.height)
         view_port = self._library.get_viewport_size()
-        if middle_coordinates.x > view_port.width or middle_coordinates.y > view_port.height:
+        if bottom_right[0] > view_port.width or bottom_right[1] > view_port.height:
             BuiltIn().log(f'Error at Get Text From BBox. The bbox is out of the viewport. BBox: {bbox.to_dict()}', 'WARN', console=True)
             return ''
-        text = self._library.getTextFromPoint(middle_coordinates.x, middle_coordinates.y)
+        text = self._library.getTextFromBboxWithJs(bbox.x, bbox.y, bottom_right[0], bottom_right[1])
         if not text:
             img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
             text = get_all_text(self.ocr_url, img)
         if not text:
+            BuiltIn().log(f'Error at Get Text From BBox. No text found for locator {selector_bbox}', 'WARN', console=True)
             text = ''
+        if return_type == TextType.string:
+            text = '\n'.join(text)
+            text.strip()
         return text
 
     @keyword(name='Record Click', tags=['task', 'only_substeps'])

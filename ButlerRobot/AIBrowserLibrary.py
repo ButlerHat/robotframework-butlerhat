@@ -253,7 +253,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             if not element_txt:
                 error, error_msg = True, f'{error_msg} No text found in the element. The action is: {action_and_args}'
             
-            assert not error and element_txt is not None, 'Element_txt must be not None at this point'
+            assert not error and element_txt is not None, f'Element_txt must be not None at this point. Error: {error}, element_txt: {element_txt}'
             if not error and self._is_correct_element(instruction, element_txt):
                 BuiltIn().run_keyword(*action_and_args)
                 return

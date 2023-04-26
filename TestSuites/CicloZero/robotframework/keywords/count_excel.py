@@ -91,3 +91,24 @@ def append_tsv_to_main_excel(tsv_path: str, excel_path:str, output_excel_path: s
 
     _save_dataframe_to_excel(excel_df, output_excel_path)
 
+
+def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_excel_path: str):
+    excel_df = _load_excel_file(excel_path)
+
+    # Insert the values in the "Amzn pend" column with the same "prod" value. If the product is not in the excel, add it to the end of the list
+    for prod, count in order_count_dict.items():
+        # Search for the product in the excel which contains the model_count prod
+        excel_row = excel_df[excel_df["prod"].str.contains(str(prod))]
+        # Check if the excel row is empty
+        if excel_row.empty:
+            # If the excel row is empty, add the model_count prod to the end of the excel
+            excel_df.loc[len(excel_df)] = [prod, "", "", count, "", ""] # type: ignore
+        else:
+            # If the excel row is not empty, add the model_count count to the excel row
+            excel_df.loc[excel_row.index, "amzn pend"] = count # type: ignore
+
+    # Add column "Total" with "Cantidad" - "Amzn pend" - "Amzn pend env" - "flend". Values must be calculated with excel formulas (=Bi-Ci-Di-Ei)
+    _add_total_column_to_dataframe(excel_df, "Total")
+
+    _save_dataframe_to_excel(excel_df, output_excel_path)
+

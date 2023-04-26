@@ -588,8 +588,8 @@ class DataWrapperLibrary:
                     if not isinstance(value, self.__class__) and hasattr(value, 'robot_name')]
         
         # Keyboard keywords and string argument position
-        self.typing_kw_stringpos = dict()  # Example: {'keyboardinput': 0, 'inputtext': 1}
-        
+        self.typing_kw_stringpos = {'observation': 1}
+
         # Exclude tasks
         self.exclude_tasks = ['no_record']
 
@@ -760,12 +760,13 @@ class DataWrapperLibrary:
 
     # ========================= KEYWORDS =========================
     @keyword(name='Add Task Library', tags=['task', 'StaticWrapper'])
-    def add_task_library(self, lib_name):
+    def add_task_library(self, *lib_names):
         """
         Library added as Task library make that all keywords 
         called from this library are considered Task.
         """
-        self.keyword_libraries.append(lib_name)
+        for lib in lib_names:
+            self.keyword_libraries.append(lib)
 
     @keyword(name='Record Test', tags=['task', 'StaticWrapper'])
     def start_test_kw(self, task_name):
@@ -857,6 +858,13 @@ class DataWrapperLibrary:
         is_removed, msg = self.exec_stack.remove_last_step_from_last_task()
         level = 'WARN' if not is_removed else 'INFO'
         BuiltIn().log(msg, console=self.console, level=level)
+
+    @keyword(name='Observation', tags=['action', 'StaticWrapper'])
+    def observation_kw(self, observation: str):
+        """
+        Add an observation to help the model with the prediction.
+        """
+        BuiltIn().log(f"Adding observation {observation}", console=self.console)
 
 if __name__ == '__main__':
     from robot.run import run

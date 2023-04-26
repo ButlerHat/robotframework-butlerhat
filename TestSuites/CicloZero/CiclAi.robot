@@ -1,10 +1,12 @@
 *** Settings ***
-Library    ButlerRobot.AIBrowserLibrary  record=${True}  output_path=${OUTPUT_DIR}${/}..${/}data  WITH NAME  Browser 
+Library    ButlerRobot.AIBrowserLibrary  record=${True}  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}${/}data  WITH NAME  Browser 
 Library    ./robotframework/keywords/count_excel.py
 Library    OTP
+Library    Collections
+Resource   ./robotframework/modeling/resources/CrawlOdoo.resource
 Resource   ./robotframework/modeling/resources/CrawlAmazon.resource
 Variables  ./robotframework/variables/credentials.py
-Suite Setup  Browser.Add Task Library    CrawlAmazon
+Suite Setup  Browser.Add Task Library    CrawlAmazon  CrawlOdoo
 
 
 *** Variables ***
@@ -15,9 +17,9 @@ ${BROWSER_WAIT}  2
 ${URL_AMAZON}  https://sellercentral.amazon.es/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fsellercentral.amazon.es%2Fhome&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=sc_es_amazon_v2&openid.mode=checkid_setup&language=es_ES&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&pageId=sc_es_amazon_v2&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&ssoResponse=eyJ6aXAiOiJERUYiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiQTI1NktXIn0.u8j_3kfAPRO9oea7TATYwCAdOKehZfRhKktBjgJlntMm6nulCn1qEg.B2O2NQ1GNLUmz9NH.cjghNVWhLvzDMxogLdKHIvb87caY5OMLYZheHT6HHz3k088JtfZnEGHu8fk8e_IFDIpVNxqqHzR8JcyQjX1b5SwxquNbOpmt5cnMPZ5pgqpf0pbcHi8-TrhHtZ2XJjSDaSwqYkPTP6oEJKgc6fDOGcJsXOPPXTJc6ZT71ZHEX1R8j94ipHBM6qer4vruZRBYMAdZVaFP.K5bI5NZ7lJG0ObtQQymgtA
 # ${ROBOT_CICLOZERO_PASS}  ..
 
-${RESULT_EXCEL_PATH_ODOO}  ${OUTPUT_DIR}${/}stock.quant.xlsx
-${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}  ${OUTPUT_DIR}${/}stock.quant.amz.unshipped.xlsx
-${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}stock.quant.full.xlsx
+${RESULT_EXCEL_PATH_ODOO}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.result.xlsx
+${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.amz.unshipped.xlsx
+${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.full.xlsx
 
 
 *** Test Cases ***
@@ -32,8 +34,12 @@ CiclAI Stock
     
     # ================== Amazon Unshipped ==================
     ${amazon_tsv_obj}  Get Unshipped Amazon
-    Append Tsv To Main Excel    ${amazon_tsv_obj.saveAs}    ${return_excel}    ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}
+    Append Tsv To Main Excel    ${amazon_tsv_obj.saveAs}    ${RESULT_EXCEL_PATH_ODOO}    ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}
     Log  Excel creado satisfactoriamente en ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}  console=${TRUE}
+
+    # ================== Amazon Unshipped ==================
+    ${amazon_dict_obj}  Get Pending Amazon
+    Append Dict To Main Excel    ${amazon_dict_obj}    ${RESULT_EXCEL_PATH_AMZ_UNSHIPPED}    ${RESULT_EXCEL_PATH}
     
 
 *** Keywords ***
@@ -44,19 +50,19 @@ Get Stocks Odoo
     Wait New Page       https://backoffice.ciclozero.com/  wait=${3}
     
     Comment  Acceder a informe de inventario
-    AI Critical.Click on "Identificarse"
-    AI.Login with user ${odoo_user} and pass ${odoo_pass}
-    AI.Go to menu icon at the top left
-    AI Critical.Go to inventario
-    AI Critical, Wait 2.Click on "informes" in the top menu
-    AI Critical.Click on "Informe de inventario" in informes submenu
+    Click on "Identificarse"
+    CrawlOdoo.Login with user ${odoo_user} and pass ${odoo_pass}
+    Go to menu icon at the top left
+    Go to inventario
+    Click on "informes" in the top menu
+    Click on "Informe de inventario" in informes submenu
     
     Comment  Marcar todos los registros de la tabla
-    AI.Select view pivot icon at the top right of the table
-    AI Critical.Click on "Total" in the first row
-    AI.Click on left right arrow icon under actualizar la cantidad
-    AI.Click on cell in the Alm/Stock venta row and column Total
-    AI.Click on select all box in the table
+    Select view pivot icon at the top right of the table
+    Click on "Total" in the first row
+    Click on left right arrow icon under actualizar la cantidad
+    Click on cell in the Alm/Stock venta row and column Total
+    Click on select all box in the table
 
     Comment  Descargar excel
     ${dl_promise}  Promise To Wait For Download    saveAs=${OUTPUT_DIR}${/}downloads${/}stock.quant.xlsx
@@ -71,7 +77,7 @@ Get Unshipped Amazon
     New Context    acceptDownloads=${TRUE}
     Wait New Page   ${URL_AMAZON}  wait=${1}
 
-    Login with user ${amazon_user} and pass ${amazon_pass}
+    CrawlAmazon.Login with user ${amazon_user} and pass ${amazon_pass}
     AI Strict.Click on Indicar contraseña de un solo uso desde la app de verificación
     AI Strict.Click on "Enviar contraseña de un solo uso"
 
@@ -136,5 +142,46 @@ Get Unshipped Amazon
     RETURN  ${amazon_tsv_obj}
 
 
-Click to download icon above the table
-    Click  //button[@title="Exportar Todo"]
+Get Pending Amazon
+    Comment  Obtener inventario de Odoo
+    New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
+    New Context    acceptDownloads=${TRUE}
+    Wait New Page   ${URL_AMAZON}  wait=${1}
+
+    CrawlAmazon.Login with user ${amazon_user} and pass ${amazon_pass}
+    AI Strict.Click on Indicar contraseña de un solo uso desde la app de verificación
+    AI Strict.Click on "Enviar contraseña de un solo uso"
+    
+    ${otp_key}=    Get OTP    ${otp_amazon}
+    Should Match Regexp       ${otp_key}        \\d{6}
+    Type number "${otp_key}" in field Indicar contraseña de un solo uso
+    Check "No vuelvas a pedir un codigo en este navegador"
+    Click on "Iniciar sesion"
+    Scroll in Select Account until "Spain" is visible and click
+    Click on "Select Account"
+
+    Click on menu icon at top left
+    Click on "Orders" menu at the left
+    Click "Manage orders" submenu
+
+    Click on "Pending" tab
+    Change Results per page to 100
+    ${num_pending}  How many orders are Pending?
+
+    Comment  Count number of times that appears each SKU
+    &{orders_sku}  Create Dictionary
+    ${NEXT_OBSERVATION}  Set Variable
+    Set Global Variable    ${NEXT_OBSERVATION}
+    ${num_pending}  Evaluate  ${num_pending} +1
+    FOR  ${i}  IN RANGE  1  ${num_pending}
+        ${ord_num}  Get Ordinal    number=${i}
+        ${sku}  Which is the SKU of the ${ord_num} order?
+        ${qty_sku}  Which quantity has the order with sku ${sku}?
+
+        ${NEXT_OBSERVATION}  Set Variable  The order is under the order with SKU ${sku}
+        ${sku_count}  Get From Dictionary  ${orders_sku}  ${sku}  0
+        ${new_sku_count}  Evaluate  ${sku_count} + ${qty_sku}
+        Set To Dictionary    ${orders_sku}    ${sku}    ${new_sku_count}
+    END
+
+    RETURN  ${orders_sku}
