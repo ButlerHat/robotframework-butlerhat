@@ -1,6 +1,7 @@
 """
 Load and create a pandas dataframe from an excel file
 """
+import re
 import pandas as pd
 
 
@@ -41,8 +42,62 @@ def _add_total_column_to_dataframe(dataframe: pd.DataFrame, column_name: str):
     for i in range(len(dataframe)):
         dataframe.loc[i, column_name] = f"=B{i+2}-C{i+2}-D{i+2}-E{i+2}"
 
+def _add_attributes_columns(dataframe: pd.DataFrame):
+    """
+    Add columns to a pandas dataframe with the attributes from the "prod" column.
+    Add the columns if not exists
+    """
+    for column in ["id_modelo", "color", "almacenamiento", "calidad", "estado", "reacondicionado"]:
+        if column not in dataframe.columns:
+            _add_empty_column_to_dataframe(dataframe, column)
+
+    for i in range(len(dataframe)):
+        prod = str(dataframe.loc[i, "prod"])
+        if "[" in prod:
+            sku = prod[prod.find("[") + 1:prod.find("]")]
+        else:
+            sku = prod
+        attributes = _get_attributes_from_sku(sku)
+        dataframe.loc[i, "id_modelo"] = attributes["id_modelo"]
+        dataframe.loc[i, "color"] = attributes["color"]
+        dataframe.loc[i, "almacenamiento"] = attributes["almacenamiento"]
+        dataframe.loc[i, "calidad"] = attributes["calidad"]
+        dataframe.loc[i, "estado"] = attributes["estado"]
+        dataframe.loc[i, "reacondicionado"] = attributes["reacondicionado"]
+
+def _get_attributes_from_sku(sku: str) -> dict[str, str]:
+    """
+    From SKU: [<id_modelo>-<color(SL=Silver)>-<almacenamiento(128)>-<calidad(A,B,B+,C)> -<reacondicionado>]
+    Get the attributes: {"id_modelo": <id_modelo>, "color": <color>, "almacenamiento": <almacenamiento>, "calidad": <calidad>, "reacondicionado": <reacondicionado>}
+    """
+    gropus_estado = {
+        "A+": "NUEVO",
+        "A": "NUEVO",
+        "B+": "NUEVO",
+        "B": "MEDIO",
+        "C": "BAJO",
+        "D": "ESTROPEADO",
+    }
+
+    attributes = sku.split("-")
+    attributes_dict = {
+        "id_modelo": attributes[0].upper(),
+        "color": attributes[1].upper(),
+        "almacenamiento": attributes[2].upper(),
+        "calidad": attributes[3].strip().upper(),
+        "estado": gropus_estado[attributes[3].strip().upper()],
+        "reacondicionado": attributes[4].upper() if len(attributes) == 5 else "",
+    }
+    return attributes_dict
+
+# KEYORDS
 
 def create_excel(count_excel_path: str, output_excel_path: str):
+    """
+    Create an excel file with the count of the same values in a column:
+    Columns: "prod", "count", "amz unshipped", "amz pending", "flend", "Total", "id_modelo", "color", "almacenamiento", "calidad", "reacondicionado"
+    """
+
     df = _load_excel_file(count_excel_path)
     model_count = _count_number_of_same_values_in_column(df, "Producto")
 
@@ -50,65 +105,110 @@ def create_excel(count_excel_path: str, output_excel_path: str):
     model_count = model_count.to_frame().reset_index()
     model_count.columns = ["prod", "count"]
 
-    # Add empty column "Amzn pend", "Amzn pend env" "flend"
-    _add_empty_column_to_dataframe(model_count, "amzn pend")
-    _add_empty_column_to_dataframe(model_count, "amzn pend env")
+    # Add empty column "amz unshipped", "amz pending" "flend"
+    _add_empty_column_to_dataframe(model_count, "amz unshipped")
+    _add_empty_column_to_dataframe(model_count, "amz pending")
     _add_empty_column_to_dataframe(model_count, "flend")
 
-    # Add column "Total" with "Cantidad" - "Amzn pend" - "Amzn pend env" - "flend". Values must be calculated with excel formulas (=Bi-Ci-Di-Ei)
+    # Add column "Total" with "Cantidad" - "amz unshipped" - "amz pending" - "flend". Values must be calculated with excel formulas (=Bi-Ci-Di-Ei)
     _add_total_column_to_dataframe(model_count, "Total")
-
+    _add_attributes_columns(model_count)
     _save_dataframe_to_excel(model_count, output_excel_path)
+
+    return model_count
 
 
 def append_tsv_to_main_excel(tsv_path: str, excel_path:str, output_excel_path: str):
     excel_df = _load_excel_file(excel_path)
     tsv_df = _load_tsv_file(tsv_path)
 
-    # Count the number of same values in the "sku" column
     model_count = _count_number_of_same_values_in_column(tsv_df, "sku")
 
-    # Convert Series[int] to DataFrame[int] with columns "prod" and "count"
     model_count = model_count.to_frame().reset_index()
     model_count.columns = ["prod", "count"]
 
-    # Insert the values in the "Amzn pend env" column with the same "prod" value. If the product is not in the excel, add it to the end of the list
     for i in range(len(model_count)):
-        # Search for the product in the excel which contains the model_count prod
         prod = model_count.loc[i, "prod"]
-        # Get the excel row where is the substring of the model_count prod
-        excel_row = excel_df[excel_df["prod"].str.contains(str(prod))]
-        # Check if the excel row is empty
+        pattern = re.escape(str(prod))
+        excel_row = excel_df[excel_df["prod"].str.contains(pattern)]
         if excel_row.empty:
-            # If the excel row is empty, add the model_count prod to the end of the excel
-            excel_df.loc[len(excel_df)] = [prod, "", "", model_count.loc[i, "count"], "", ""] # type: ignore
+            # Match id_modelo, color, almacenamiento, estado, reacondicionado
+            attributes = _get_attributes_from_sku(str(prod))
+            matched_id_modelo = excel_df[excel_df["id_modelo"] == attributes["id_modelo"]]
+            matched_id_color = matched_id_modelo[matched_id_modelo["color"] == attributes["color"]]
+            matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == attributes["almacenamiento"]]
+            matched_id_calidad = matched_id_almacenamiento[matched_id_almacenamiento["estado"] == attributes["estado"]]
+            matched_id_reacondicionado = matched_id_calidad[matched_id_calidad["reacondicionado"] == attributes["reacondicionado"]]
+
+            if len(matched_id_reacondicionado) == 1:
+                print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
+                excel_df.loc[matched_id_reacondicionado.index, "amz unshipped"] = model_count.loc[i, "count"]  # type: ignore
+            else:
+            # No match
+                new_row = [prod, "", model_count.loc[i, "count"]] + [""] * (len(excel_df.columns) - 3)
+                excel_df.loc[len(excel_df)] = new_row # type: ignore
         else:
-            # If the excel row is not empty, add the model_count count to the excel row
-            excel_df.loc[excel_row.index, "amzn pend env"] = model_count.loc[i, "count"] # type: ignore
+            excel_df.loc[excel_row.index, "amz unshipped"] = model_count.loc[i, "count"] # type: ignore
 
-    # Add column "Total" with "Cantidad" - "Amzn pend" - "Amzn pend env" - "flend". Values must be calculated with excel formulas (=Bi-Ci-Di-Ei)
     _add_total_column_to_dataframe(excel_df, "Total")
-
+    _add_attributes_columns(excel_df)
     _save_dataframe_to_excel(excel_df, output_excel_path)
+
+    return excel_df
 
 
 def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_excel_path: str):
     excel_df = _load_excel_file(excel_path)
 
-    # Insert the values in the "Amzn pend" column with the same "prod" value. If the product is not in the excel, add it to the end of the list
     for prod, count in order_count_dict.items():
-        # Search for the product in the excel which contains the model_count prod
-        excel_row = excel_df[excel_df["prod"].str.contains(str(prod))]
-        # Check if the excel row is empty
+        pattern = re.escape(str(prod))
+        excel_row = excel_df[excel_df["prod"].str.contains(pattern)]
         if excel_row.empty:
-            # If the excel row is empty, add the model_count prod to the end of the excel
-            excel_df.loc[len(excel_df)] = [prod, "", "", count, "", ""] # type: ignore
+             # Match id_modelo, color, almacenamiento, estado, reacondicionado
+            attributes = _get_attributes_from_sku(str(prod))
+            matched_id_modelo = excel_df[excel_df["id_modelo"] == attributes["id_modelo"]]
+            matched_id_color = matched_id_modelo[matched_id_modelo["color"] == attributes["color"]]
+            matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == attributes["almacenamiento"]]
+            matched_id_calidad = matched_id_almacenamiento[matched_id_almacenamiento["estado"] == attributes["estado"]]
+            matched_id_reacondicionado = matched_id_calidad[matched_id_calidad["reacondicionado"] == attributes["reacondicionado"]]
+
+            if len(matched_id_reacondicionado) == 1:
+                print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
+                excel_df.loc[matched_id_reacondicionado.index, "amz pending"] = count
+            else:
+                new_row = [prod, "", "", count] + [""] * (len(excel_df.columns) - 4)
+                excel_df.loc[len(excel_df)] = new_row # type: ignore
         else:
-            # If the excel row is not empty, add the model_count count to the excel row
-            excel_df.loc[excel_row.index, "amzn pend"] = count # type: ignore
+            excel_df.loc[excel_row.index, "amz pending"] = count # type: ignore
 
-    # Add column "Total" with "Cantidad" - "Amzn pend" - "Amzn pend env" - "flend". Values must be calculated with excel formulas (=Bi-Ci-Di-Ei)
     _add_total_column_to_dataframe(excel_df, "Total")
-
+    _add_attributes_columns(excel_df)
     _save_dataframe_to_excel(excel_df, output_excel_path)
 
+    return excel_df
+
+
+if __name__ == "__main__":
+    import os 
+
+    workdir = "/workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero/downloads"
+    stock_excel_path = os.path.join(workdir, "stock.quant.xlsx")
+    res_stock_excel_path = os.path.join(workdir, "deb.stock.quant.result.xlsx")
+    tsv_path = os.path.join(workdir, "unshipped.tsv")
+    pending_unshipped_path = os.path.join(workdir, "stock.quant.amz.unshipped.result.xlsx")
+    res_full_excel_path = os.path.join(workdir, "deb.full.result.xlsx")
+
+    # create_excel(stock_excel_path, res_stock_excel_path)
+    # append_tsv_to_main_excel(tsv_path, res_stock_excel_path, res_full_excel_path)
+    df = append_dict_to_main_excel({
+        'iPXS-GD-64-B+ -R': 1, 
+        'iP12MN-WT-128-B -R': 1, 
+        'iPXS-SL-256-A -R': 1, 
+        'iP12PR-SL-128-A -R': 3, 
+        'iP13-PK-128-A -R': 1, 
+        'iP13-BL-128-B -R': 1, 
+        'iP12PR-SL-128-B -R': 1, 
+        'iP12PR-GRT-128-A -R': 1
+        }, pending_unshipped_path, res_full_excel_path)
+
+    print(f"Excel file saved in {res_full_excel_path}")

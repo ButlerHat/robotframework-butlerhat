@@ -62,7 +62,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self._library: Browser = self._library
 
         # To filter recorded actions
-        self.action_tags = ['PageContent', 'ActionWrapper']
+        self.action_tags = ['PageContent', 'ActionWrapper', 'AI']
         self.exclude_tags = ['Wait']
 
         self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'presskeys': ':1'}
@@ -162,7 +162,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         current_action = self.exec_stack.remove_action()
 
         # Replace with Click at BBox
-        assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox'
+        assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Could be be a bad selector'
         try:
             BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
         finally:

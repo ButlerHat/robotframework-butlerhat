@@ -51,6 +51,8 @@ class AIExampleBuilder:
             # Add actions as examples
             if isinstance(step, PageAction):
                 for prompt in intermediate_tasks:
+                    # Remove observations from history
+                    instruction_history = [s for s in prompt[:-1] if s.type == 'task' or (s.type == 'action' and 'observation' != s.name.lower())]
                     # Remove scroll actions from history
                     if ignore_scrolls:
                         instruction_history = [s for s in prompt[:-1] if s.type == 'task' or (s.type == 'action' and 'scroll' not in s.name.lower())]

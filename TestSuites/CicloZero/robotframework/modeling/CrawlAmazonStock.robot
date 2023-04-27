@@ -89,7 +89,7 @@ Modelate Table
 
     Click on menu icon at top left
     Click on "Orders" menu at the left
-    Click on "Orders Report" submenu
+    Click on "Order Reports" submenu
 
     Click on "Unshipped Orders" in the menu
     Click on "Request" yellow button
@@ -124,7 +124,7 @@ CiclAI Amazon Unshipped
 
     Click on menu icon at top left
     Click on "Orders" menu at the left
-    Click on "Orders Report" submenu
+    Click on "Order Reports" submenu
 
     Click on "Unshipped Orders" in the menu
     # Click on "Request" yellow button

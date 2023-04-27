@@ -571,6 +571,10 @@ class DataWrapperLibrary:
         self.ROBOT_LIBRARY_LISTENER = self
         self.record = record
         
+        # Check if wait time is set
+        if not hasattr(self, 'wait_time'):
+            self.wait_time = 0
+        
         # For identifying every step
         self.id_count = 0
 
@@ -588,7 +592,7 @@ class DataWrapperLibrary:
                     if not isinstance(value, self.__class__) and hasattr(value, 'robot_name')]
         
         # Keyboard keywords and string argument position
-        self.typing_kw_stringpos = {'observation': 1}
+        self.typing_kw_stringpos = {'observation': 0}
 
         # Exclude tasks
         self.exclude_tasks = ['no_record']
@@ -759,6 +763,13 @@ class DataWrapperLibrary:
 
 
     # ========================= KEYWORDS =========================
+    @keyword(name='Set Browser Wait Time', tags=['action', 'no_record'])
+    def set_browser_wait_time(self, time):
+        """
+        Set browser wait time.
+        """
+        self.wait_time = time
+
     @keyword(name='Add Task Library', tags=['task', 'StaticWrapper'])
     def add_task_library(self, *lib_names):
         """
@@ -859,7 +870,7 @@ class DataWrapperLibrary:
         level = 'WARN' if not is_removed else 'INFO'
         BuiltIn().log(msg, console=self.console, level=level)
 
-    @keyword(name='Observation', tags=['action', 'StaticWrapper'])
+    @keyword(name='Observation', tags=['action', 'AI'])
     def observation_kw(self, observation: str):
         """
         Add an observation to help the model with the prediction.

@@ -5,6 +5,11 @@ Library   ../../keywords/utils.py
 
 *** Keywords ***
 
+
+# ===========================================================
+# ======================== Pendiente ========================
+# ===========================================================
+
 Login with user ${user} and pass ${password}
     Click  //*[@id='ap_email']
     Keyboard Input    type    ${user}
@@ -48,9 +53,11 @@ Click on menu icon at top left
     Click  //div[@role='button']
 
 Click on "Orders" menu at the left
-    Click  //html/body/div/div[1]/div/div[1]/div[3]/div[3]/div/div[1]/div[2]/div/div[4]
+    AI.Click on "Orders" menu at the left
+    # Only works in flendu
+    # Click  //html/body/div/div[1]/div/div[1]/div[3]/div[3]/div/div[1]/div[2]/div/div[4]
 
-Click on "Orders Report" submenu
+Click on "Order Reports" submenu
     Click  //a[@href='/order-reports-and-feeds/reports/ref=xx_orderrpt_dnav_xx']
 
 Click on "Unshipped Orders" in the menu
@@ -72,9 +79,12 @@ Click at "download" button at ${ordinal_num} row at Download Report table
     &{num_dict}  Create Dictionary   first=2  second=3  third=4  fourth=5  fifth=6  sixth=7  seventh=8  eighth=9  ninth=10  tenth=11
     Click  //html/body/div[1]/div[2]/div[1]/div/div/div[2]/div[2]/div/div/div[4]/table/tr[${num_dict["${ordinal_num}"]}]/td[7]//a
 
-# ====== Pendiente Keywords ======
+# ==================================================================
+# ======================== Pendiente envios ========================
+# ==================================================================
 Click "Manage orders" submenu
-    Click  //html/body/div/div[1]/div/div[1]/div[3]/div[3]/div/div[1]/div[2]/div/div[4]/div[2]/div[2]/a/div[1]
+    AI.Click "Manage orders" submenu
+    # Click  //html/body/div/div[1]/div/div[1]/div[3]/div[3]/div/div[1]/div[2]/div/div[4]/div[2]/div[2]/a/div[1]
 
 Click on "Pending" tab
     Click  //div[@class='myo-spa-tab '][.//a[@data-test-id='tab-/mfn/pending']]
@@ -100,29 +110,40 @@ Get Element Bounding Box of the "Pending" tab
     ${bbox}  Element Bbox  //div[contains(@class, 'active')]
     RETURN  ${bbox}
 
-Which is the SKU of the ${ord_num} order?
+Which is the number of the second column of the ${ord_num} row?
     [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
-    ${sku_bbox}  Get element bounding box of the sku of the ${ord_num} order
+    ${num_bbox}  Get element bounding box of the second column of the ${ord_num} order
+    ${asin_num}  Get Text From Bbox    selector_bbox=${num_bbox}  return_type=array
+    RETURN  ${asin_num[0]}
+
+Get element bounding box of the second column of the ${ord_num} order
+    [Documentation]  Get the element second column bounding box. If you want to give a clue to the AI you can set "${NEXT_OBSERVATION}" variable.
+    IF  "${NEXT_OBSERVATION}"  Observation  ${NEXT_OBSERVATION}
+    ${num}  Get Cardinal  ${ord_num}
+    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[${num}]//td[3]
+    RETURN  ${bbox}
+
+Which is the SKU of the order ${2nd_col_num}?
+    [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
+    ${sku_bbox}  Get element bounding box of the sku of the ${2nd_col_num} order
     ${sku}  Get Text From Bbox    selector_bbox=${sku_bbox}
     # Remove the "SKU: " part
     RETURN  ${sku.replace('SKU', "").replace(':', "").strip()}
 
-Get element bounding box of the sku of the ${ord_num} order
-    [Documentation]  Get the element sku bounding box. If you want to give a clue to the AI you can set "${NEXT_OBSERVATION}" variable.
-    IF  "${NEXT_OBSERVATION}"  Observation  ${NEXT_OBSERVATION}
-    ${num}  Get Cardinal  ${ord_num}
-    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[${num}]//span[contains(text(), 'SKU')]/..
+Get element bounding box of the sku of the ${2nd_col_num} order
+    [Documentation]  Get the element sku bounding box. 
+    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[contains(.,'${2nd_col_num}')]//span[contains(text(), 'SKU')]/..
     RETURN  ${bbox}
 
-Which quantity has the order with sku ${sku}?
+Which quantity has the order ${2nd_col_num}?
     [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
-    ${qty_bbox}  Get element bounding box of the quantity of the order with SKU ${sku}
+    ${qty_bbox}  Get element bounding box of the quantity of the order ${2nd_col_num}
     ${qty}   Get Text From Bbox    selector_bbox=${qty_bbox}
     # Remove the "Quantity: " part
     RETURN  ${qty.split(':')[-1].strip()}
 
-Get element bounding box of the quantity of the order with SKU ${sku}
-    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[.//*[contains(., '${sku}')]]//span[contains(text(), 'Quantity')]/..
+Get element bounding box of the quantity of the order ${2nd_col_num}
+    ${bbox}  Element Bbox  //*[@id='orders-table']//tr[contains(.,'${2nd_col_num}')]//span[contains(text(), 'Quantity')]/..
     RETURN  ${bbox}
 
 
@@ -134,3 +155,15 @@ No Record Scroll Up
 No Record Scroll Down
     [Tags]  no_record
     Scroll Down  pixels_selector=10000
+
+
+# ==================================================================
+# ======================== Pendiente envios ========================
+# ==================================================================
+
+Go to "Inventory" at the left
+    Click  //*[text()='Inventory']
+
+Go to "Manage All Inventory" submenu
+    Click  //*[text()='Manage All Inventory']
+
