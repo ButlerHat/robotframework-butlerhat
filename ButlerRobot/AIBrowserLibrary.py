@@ -102,7 +102,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             """
             This method gets the BBox and pointer of a selector.
             """
-            # When is a BBox selector
+            # When is a BBox selector. When is this case, let's assume that there is no need to scroll
             if isinstance(selector, str) and selector.startswith("BBox") or isinstance(selector, BBox):
                 bbox: BBox = BBox.from_rf_string(selector) if isinstance(selector, str) else selector
                 pointer_xy = (int(bbox.x + bbox.width/2), int(bbox.y + bbox.height/2))
@@ -121,11 +121,11 @@ class AIBrowserLibrary(DataBrowserLibrary):
             # When is a xpath (or any) selector
             elif isinstance(selector, str):
                 str_selector: str = str(selector)
-                return self._get_selector_pointer_and_bbox(str_selector)
+                return super()._retrieve_bbox_and_pointer_from_page(str_selector)
             else:
                 return None, None
     
-    def _get_selector_pointer_and_bbox(self, selector: str) -> tuple[None, None] | tuple[BBox, tuple[float, float]]:
+    def _retrieve_bbox_and_pointer_from_page(self, selector: str) -> tuple[None, None] | tuple[BBox, tuple[float, float]]:
         # If not is a control of the selector, this function takes too much time
         if not selector or selector.lower() in ['type']:
             # Skip Keyboard Input  type  text
@@ -241,7 +241,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             # Fix bbox to fit the element
             bbox: BBox = BBox.from_rf_string(action_and_args[1]) if isinstance(action_and_args[1], str) else action_and_args[1]
             pointer_xy = (int(bbox.x + bbox.width/2), int(bbox.y + bbox.height/2))
-            fixed_bbox: BBox = self._get_element_bbox_from_pointer(*pointer_xy)
+            fixed_bbox: BBox | None = self._get_element_bbox_from_pointer(*pointer_xy)
             bbox: BBox = fixed_bbox if fixed_bbox else bbox
             elemnt_img_str = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
             # Save the image with pillow

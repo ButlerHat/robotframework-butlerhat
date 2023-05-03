@@ -15,7 +15,7 @@ from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
-from ButlerRobot.src.data_types import BBox, PageAction, SaveStatus
+from ButlerRobot.src.data_types import BBox, PageAction, SaveStatus, Task
 
 
 class TextType(Enum):
@@ -79,6 +79,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
             'source': f'{self.click_at_bbox.__code__.co_filename}:{self.click_at_bbox.__code__.co_firstlineno}'
         }
 
+        self.observation_before_scroll = None
+        self.update_scroll_observation = False
+
     
     # ======= Overrides =======
     def _scroll_to_top(self):
@@ -119,20 +122,68 @@ class DataBrowserLibrary(DataWrapperLibrary):
     def _wait_for_browser(self):
         BuiltIn().sleep(3)  # For safe recording
 
-    def _get_element_bbox_from_pointer(self, x, y):
-        bbox: dict = self._library.evaluate_javascript(None, f'document.elementFromPoint({x}, {y}).getBoundingClientRect()')
+    def _get_element_bbox_from_pointer(self, x, y) -> Optional[BBox]:
+        x, y = str(x), str(y)
+        bbox: dict = self._library.evaluate_javascript(None, r'''() => {
+                element = document.elementFromPoint(''' + x + r''', ''' + y + r''');
+                if (element.tagName === "IFRAME") {
+                    return 'iframe';
+                } else {
+                    return element.getBoundingClientRect();
+                }
+            }''')
+        if bbox == 'iframe':
+            return None
         return BBox(bbox['x'], bbox['y'], bbox['width'], bbox['height'])
 
-    def _get_selector_pointer_and_bbox(self, selector):
+    def _retrieve_bbox_and_pointer_from_page(self, selector) -> tuple[None, None] | tuple[BBox, tuple]:
+        # Here in browser libray, this function is going to make the element visible. If there is
+        # a scroll, it will be added to the stack.
         try:
             web_element = self._library.get_element(selector)
-            bbox = self._library.get_boundingbox(web_element)
-            return (
-                (bbox['x'] + bbox['width'] / 2,  bbox['y'] + bbox['height'] / 2),
-                BBox(**bbox)
-            )
-        except:
+            bbox_ = self._library.get_boundingbox(web_element)
+        except Exception as e:
+            BuiltIn().log(f'Error getting selector pointer and bbox: {e}', console=self.console)
             return None, None
+        
+        # Scroll up if needed
+        if bbox_['y'] < 0:
+            # Go to the top of the page
+            self._scroll_to_top()
+            self._update_observation_and_set_in_parents()
+
+        self.observation_before_scroll = self.last_observation
+
+        scroll_dict = self._library.scrollElementIfNeeded(selector)
+        if not scroll_dict:
+            BuiltIn().log(f'Error in _retrieve_bbox_and_pointer_from_page when trying to scroll with scrollElementIfNeeded. Error scrolling element {selector}', console=self.console)
+            return None, None
+        
+        if scroll_dict['is_element_scrolled']:
+            bbox_ = scroll_dict['el_bbox_after_scroll']
+
+            # Check if is a scroll up. If is the case, update observation like anything happened.
+            # AI dataset is not expected to have scroll up actions.
+            if scroll_dict['is_scrolled_up']:
+                self._update_observation_and_set_in_parents()
+            
+            self.update_scroll_observation = True
+            # Check if is a scroll in bounding box or scroll in page
+            if scroll_dict['is_parent_scrolled']:
+               # The start observation will be modified inside the keyword.
+               BuiltIn().run_keyword('Scroll Down')
+
+            else:
+                # The scroll is done in a scrollable object.
+                # The start observation will be modified inside the keyword.
+                bbox_arg: BBox = BBox(**scroll_dict['parent_bbox_before_scroll'])
+                BuiltIn().run_keyword('Scroll Down At BBox', bbox_arg)
+
+        
+        return (
+                BBox(**bbox_),
+                (bbox_['x'] + bbox_['width'] / 2,  bbox_['y'] + bbox_['height'] / 2)
+            )
         
     def _replace_keyboard_input(self, locator: str, text: str, clear: bool):
         """
@@ -235,6 +286,16 @@ class DataBrowserLibrary(DataWrapperLibrary):
         Scroll down the page.
         Param pixels: Number of pixels to scroll down.
         """
+        # Check the case of is scrolled by the library itself
+        if self.update_scroll_observation:
+            assert self.observation_before_scroll, 'Error at Scroll Down. Trying to scroll down without an observation before.'
+            curr_step = self.exec_stack.get_last_step()
+            self._update_observation_and_set_in_parents(self.observation_before_scroll)
+            assert curr_step.context is not None, 'Error at Scroll Down. Trying to scroll down without an observation before.'
+            curr_step.context.start_observation = self.observation_before_scroll
+            self.update_scroll_observation = False
+            return
+
         # Run Scroll with pixels. If is an int or starts with a number
         if isinstance(pixels_selector, int) or (isinstance(pixels_selector, str) and pixels_selector[0].isdigit()):
             self._library.scroll_by(vertical=pixels_selector)  # type: ignore
@@ -266,6 +327,16 @@ class DataBrowserLibrary(DataWrapperLibrary):
         """
         Record a click event with no xpath selector. This keyword go throught WrapperLibrary middleware as PageAction.
         """
+        if self.update_scroll_observation:
+            assert self.observation_before_scroll, 'Error at Scroll Down At BBox. Trying to scroll down without an observation before.'
+            curr_step = self.exec_stack.get_last_step()
+            self._update_observation_and_set_in_parents(self.observation_before_scroll)
+            assert curr_step.context is not None, 'Error at Scroll Down At BBox. Trying to scroll down without an observation before.'
+            curr_step.context.start_observation = self.observation_before_scroll
+            self.update_scroll_observation = False
+            return
+
+
         bbox: BBox | None = None
         # Check if is a locator and convert to BBox
         if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
@@ -284,8 +355,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
         assert bbox, 'Error at Scroll in BBox. Trying to scroll element. The PageAction has no bbox'
         # Get the middle of the bbox
         top_left = (bbox.x, bbox.y)
-        w = bbox.width
-        h = bbox.height
+        viewport = self._library.get_viewport_size()
+        w = min(bbox.width, viewport['width'])
+        h = min(bbox.height, viewport['height'])
         middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
 
         self._library.mouse_move(middle_coordinates[0], middle_coordinates[1])
@@ -322,7 +394,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self._library.mouse_wheel(0, -offset)
 
     @keyword(name='Is Text Visible', tags=['tesk', 'no_record'])
-    def is_text_visible(self, text: str, selector: str | None = None) -> bool:
+    def is_text_visible(self, text: str, selector: str | BBox | None = None) -> bool:
         """
         Check if text is visible in the page.
         Param text: Text to search.
@@ -365,7 +437,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return bbox
     
     @keyword(name="Get Text From BBox", tags=['task', 'no_record'])
-    def get_text_from_bbox(self, selector_bbox: BBox | str, return_type: TextType = TextType.string) -> str:
+    def get_text_from_bbox(self, selector_bbox: BBox | str, return_type: TextType = TextType.string) -> str | list[str]:
         """
         Get the text from a BBox.
         Param selector: Selector of the element.
@@ -399,8 +471,13 @@ class DataBrowserLibrary(DataWrapperLibrary):
             BuiltIn().log(f'Error at Get Text From BBox. No text found for locator {selector_bbox}', 'WARN', console=True)
             text = ''
         if return_type == TextType.string:
-            text = '\n'.join(text)
+            if isinstance(text, list) and len(text):
+                text = '\n'.join(text)
+            assert isinstance(text, str), f'Error at Get Text From BBox. The text is not a string. Text: {text}'
             text.strip()
+        if return_type == TextType.array:
+            if isinstance(text, str):
+                text = [text]
         return text
 
     @keyword(name='Record Click', tags=['task', 'only_substeps'])

@@ -1,11 +1,11 @@
 *** Settings ***
 Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Library   Collections
 Library   ../../keywords/utils.py
+Library    OperatingSystem
 
 
 *** Keywords ***
-
-
 # ===========================================================
 # ======================== Pendiente ========================
 # ===========================================================
@@ -28,22 +28,6 @@ Click on "Iniciar sesion"
     Click  //*[@id='auth-signin-button']
 
 Scroll in Select Account until "${country}" is visible and click
-    ${result}  Is Text Visible  ${country}
-    IF    ${result}
-        Sleep  0.1
-        Click  //*[@id="picker-container"]//div[contains(text(), "${country}")]
-        RETURN
-    END
-    WHILE    ${True}
-        Sleep  0.1
-        Scroll Down At Bbox    //*[@id="picker-container"]/div/div[2]/div/div[3]
-        # Ask if ${country} is visible
-        ${result}  Is Text Visible  ${country}
-        IF    ${result}
-            BREAK
-        END
-    END
-    Sleep  0.1
     Click  //*[@id="picker-container"]//div[contains(text(), "${country}")]
 
 Click on "Select Account"
@@ -158,7 +142,7 @@ No Record Scroll Down
 
 
 # ==================================================================
-# ======================== Pendiente envios ========================
+# ======================== Price ========================
 # ==================================================================
 
 Go to "Inventory" at the left
@@ -166,4 +150,113 @@ Go to "Inventory" at the left
 
 Go to "Manage All Inventory" submenu
     Click  //*[text()='Manage All Inventory']
+
+Search for SKU ${sku}
+    Click  //*[@id='myitable-search']
+    Keyboard Input    type    ${sku}
+    Click  //*[@id='myitable-search-button-announce']
+
+Click at marketplaces button for sku ${sku}
+    Click  //table//tr[contains(.,"${sku}")]//input[./..//span[contains(text(),'marketplaces')]]
+
+In which marketplaces is it being sold?
+    ${bbox}  Get Element Bounding Box of marketplaces
+    ${marketplaces}  Get Text From Bbox    selector_bbox=${bbox}
+    @{marketplaces}  Set Variable  ${marketplaces.replace('\n', '').split(':')[-1].replace('CicloZero', '').split(',')}
+    ${strip_marketplaces}  Evaluate  [x.strip() for x in ${marketplaces}]
+    RETURN  ${strip_marketplaces}
+
+Get Element Bounding Box of marketplaces
+    ${bbox}  Element Bbox  //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[1]/div[1]
+    RETURN  ${bbox}
+
+Go to page of the ${marketplace} row
+    [Documentation]  This keyword cannot be recorded because when click does not work
+    Get Bounding box of the link in the ${marketplace} row
+    ${href}  Get Attribute    //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${marketplace}')][2]/div[4]//a    href
+    New Page  ${href}
+
+    RETURN  ${href}
+
+Get Bounding box of the link in the ${marketplace} row
+    [Documentation]  This keyword is only for teaching purposes. When click does not work
+    Element Bbox   //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${marketplace}')][2]/div[4]
+
+Get status for ${market}
+    ${bbox}  Get Element Bounding Box of the status of the ${market} row
+    ${status}  Get Text From Bbox    selector_bbox=${bbox}
+    RETURN  ${status.replace('\n', '').split(' ')[-1]}
+
+Get Element Bounding Box of the status of the ${market} row
+    # Make sure the row is visible
+    ${bbox}  Element Bbox  //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${market}')][2]/div[1]
+    RETURN  ${bbox}
+
+Get price for ${market}
+    ${bbox}  Get Element Bounding Box of the price of the ${market} row
+    ${price}  Get Text From Bbox    selector_bbox=${bbox}
+    RETURN  ${price.replace('\n', '').split(' ')[-1]}
+
+Get Element Bounding Box of the price of the ${market} row
+    ${loc}  Set Variable  //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${market}')][2]/div[6]//kat-input-group
+    ${bbox}  Element Bbox  ${loc}
+    RETURN  ${bbox}
+
+
+# ========== Amazon Public ==========
+Accept cookies
+    Click  //*[@id='sp-cc-accept']
+
+Search ${product}
+    Click  //*[@id='twotabsearchtextbox']
+    Keyboard Input    type    ${product}
+
+Click on search icon
+    Click  //*[@id='nav-search-submit-button']
+
+See Renewed at the right above sell on Amazon
+    Click  //div[@class='a-box-inner'][.//div[@class='olp-text-box']]
+
+Click on filter at the right
+    Click  //*[@id='aod-filter-string']
+
+Check ${condition} condition checkbox
+    &{types_dict}  Create Dictionary  Renewed=new  Used=used  Like New=usedLikeNew  Very Good=usedVeryGood  Good=usedGood  Acceptable=usedAcceptable
+    ${value}  Get From Dictionary    ${types_dict}  ${condition}
+    Click  //*[@id="${value}"]/div/label/input
+
+
+
+Get three first lowest price
+    # Create dict to store prices
+    &{prices}  Create Dictionary
+    ${num_elements}  Get Element Count  //*[@id='aod-offer']
+    ${num_elements}  Evaluate  min(3, ${num_elements})
+
+    FOR  ${i}  IN RANGE  ${num_elements}
+        ${ord_num}  Get Ordinal    number=${i+1}
+
+        # Get best price
+        ${bbox_price}  Get element bounding box of the price of the ${ord_num} option
+        ${price}  Get Text From Bbox    ${bbox_price}  array
+        ${price}  Evaluate  ''.join(${price[:3]})
+        ${bbox}  Get element bounding box of the seller of the ${ord_num} option
+        ${seller}  Get Text From Bbox    ${bbox}
+
+        # Add to dict
+        Set To Dictionary   ${prices}  ${seller}  ${price}  
+    END
+
+    RETURN  ${prices}
+
+Get element bounding box of the price of the ${ord_num} option
+    ${num}  Get Cardinal  ${ord_num} 
+    ${bbox}  Element Bbox  (//*[@id='aod-offer'][${num}]//*[contains(text(),'€')][not(contains(text(),'no'))])[1]
+    RETURN  ${bbox}
+
+Get element bounding box of the seller of the ${ord_num} option
+    ${num}  Get Cardinal  ${ord_num}
+    ${bbox}  Element Bbox  (//*[@id='aod-offer'][${num}]//*[@id='aod-offer-shipsFrom']//span)[2]
+    RETURN  ${bbox}
+
 

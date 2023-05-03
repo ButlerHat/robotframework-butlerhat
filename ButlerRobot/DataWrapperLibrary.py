@@ -149,7 +149,7 @@ class DataWrapperLibrary:
     def _wait_for_browser(self) -> None:
         raise NotImplementedError
     
-    def _get_selector_pointer_and_bbox(self, selector: str) -> tuple[tuple, BBox]:
+    def _retrieve_bbox_and_pointer_from_page(self, selector: str) -> tuple[BBox, tuple]:
         raise NotImplementedError
     
     def _get_viewport(self) -> dict:
@@ -198,9 +198,20 @@ class DataWrapperLibrary:
             # When is a xpath (or any) selector
             else:
                 str_selector: str = str(selector)
-                pointer_xy, bbox = self._get_selector_pointer_and_bbox(str_selector)
-                return bbox, pointer_xy
+                return self._retrieve_bbox_and_pointer_from_page(str_selector)
             
+    def _update_observation_and_set_in_parents(self, observation: Observation | None = None) -> None:
+            self.last_observation = self._get_observation() if observation is None else observation
+            
+            # Update observation to inmediate parents with no steps
+            for prev_step_idx in range(len(self.exec_stack.get_stack())-1, 0, -1):
+                prev_step = self.exec_stack.get_stack()[prev_step_idx]
+                if isinstance(prev_step, Task) and len(prev_step.steps) == 0:
+                    assert prev_step.context is not None, 'Trying to scroll to top. Error when updating context.'
+                    prev_step.context.start_observation = self.last_observation
+                else:
+                    break
+
     def _add_scroll_when_recording(self, step: PageAction) -> PageAction:
         """
         This method adds a scroll to the step if the step element is not in the viewport.
@@ -224,16 +235,7 @@ class DataWrapperLibrary:
         if bbox.y < 0:
             # Go to the top of the page
             self._scroll_to_top()
-            self.last_observation = self._get_observation()
-            
-            # Update observation to inmediate parents with no steps
-            for prev_step_idx in range(len(self.exec_stack.get_stack())-1, 0, -1):
-                prev_step = self.exec_stack.get_stack()[prev_step_idx]
-                if isinstance(prev_step, Task) and len(prev_step.steps) == 0:
-                    assert prev_step.context is not None, 'Trying to scroll to top. Error when updating context.'
-                    prev_step.context.start_observation = self.last_observation
-                else:
-                    break
+            self._update_observation_and_set_in_parents()
             bbox, pointer_xy = self._get_bbox_and_pointer(selector)
             scrolled = True
 
@@ -456,7 +458,7 @@ class DataWrapperLibrary:
             self.exec_stack.push(step)
             return
 
-        # ============ COMPLETE STEP ============
+        # ============ COMPLETE STEP CONTEXT ============
 
     	# Capture observation if browser is open and no observation was captured. This means is the first keyword after the open browser.
         if self._is_browser_open():  # and self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
@@ -641,7 +643,7 @@ class DataWrapperLibrary:
             kw = name.lower().replace(' ', '').replace('_', '')
             string_kw = [k for k in self.typing_kw_stringpos.keys() if k in kw]
             
-            # BBox, if not string kw
+            # First arg: BBox, if not string kw
             if 'bbox' in name.lower() or 'scroll' not in name.lower() and len(args) > 0 \
                 and not(len(string_kw) > 0 and self.typing_kw_stringpos[string_kw[0]] == 0):
 
@@ -661,7 +663,7 @@ class DataWrapperLibrary:
 
             return action
 
-        # ============ COMPLETE STEP ============
+        # ============ COMPLETE STEP ARGUMENTS ============
         # Complete step here since the variables only are resolved here
         if not self.exec_stack.is_empty():
             step = self.exec_stack.pop()

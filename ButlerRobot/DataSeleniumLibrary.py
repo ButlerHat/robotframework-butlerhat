@@ -97,7 +97,7 @@ class DataSeleniumLibrary(DataWrapperLibrary):
     def _scroll_to_top(self):
         self._library.execute_javascript('window.scrollTo(0, 0)')
 
-    def _get_selector_pointer_and_bbox(self, selector):
+    def _retrieve_bbox_and_pointer_from_page(self, selector) -> tuple[None, None] | tuple[BBox, tuple]:
         # Get web element position respect to the viewport
         try:
             web_element = self._library.get_webelement(selector)
@@ -109,8 +109,8 @@ class DataSeleniumLibrary(DataWrapperLibrary):
                 'height': web_element.size['height']
             }
             return (
-                (bbox['x'] + bbox['width'] / 2,  bbox['y'] + bbox['height'] / 2),
-                BBox(**bbox)
+                BBox(**bbox),
+                (bbox['x'] + bbox['width'] / 2,  bbox['y'] + bbox['height'] / 2)
             )
         except:
             return None, None

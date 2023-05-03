@@ -3,6 +3,7 @@ Load and create a pandas dataframe from an excel file
 """
 import re
 import pandas as pd
+import openpyxl
 
 
 def _load_excel_file(file_path: str) -> pd.DataFrame:
@@ -57,7 +58,7 @@ def _add_attributes_columns(dataframe: pd.DataFrame):
             sku = prod[prod.find("[") + 1:prod.find("]")]
         else:
             sku = prod
-        attributes = _get_attributes_from_sku(sku)
+        attributes = get_attributes_from_sku(sku)
         dataframe.loc[i, "id_modelo"] = attributes["id_modelo"]
         dataframe.loc[i, "color"] = attributes["color"]
         dataframe.loc[i, "almacenamiento"] = attributes["almacenamiento"]
@@ -65,7 +66,7 @@ def _add_attributes_columns(dataframe: pd.DataFrame):
         dataframe.loc[i, "estado"] = attributes["estado"]
         dataframe.loc[i, "reacondicionado"] = attributes["reacondicionado"]
 
-def _get_attributes_from_sku(sku: str) -> dict[str, str]:
+def get_attributes_from_sku(sku: str) -> dict[str, str]:
     """
     From SKU: [<id_modelo>-<color(SL=Silver)>-<almacenamiento(128)>-<calidad(A,B,B+,C)> -<reacondicionado>]
     Get the attributes: {"id_modelo": <id_modelo>, "color": <color>, "almacenamiento": <almacenamiento>, "calidad": <calidad>, "reacondicionado": <reacondicionado>}
@@ -74,9 +75,9 @@ def _get_attributes_from_sku(sku: str) -> dict[str, str]:
         "A+": "NUEVO",
         "A": "NUEVO",
         "B+": "NUEVO",
-        "B": "MEDIO",
-        "C": "BAJO",
-        "D": "ESTROPEADO",
+        "B": "NUEVO",
+        "C": "MEDIO",
+        "D": "BAJO"
     }
 
     attributes = sku.split("-")
@@ -133,7 +134,7 @@ def append_tsv_to_main_excel(tsv_path: str, excel_path:str, output_excel_path: s
         excel_row = excel_df[excel_df["prod"].str.contains(pattern)]
         if excel_row.empty:
             # Match id_modelo, color, almacenamiento, estado, reacondicionado
-            attributes = _get_attributes_from_sku(str(prod))
+            attributes = get_attributes_from_sku(str(prod))
             matched_id_modelo = excel_df[excel_df["id_modelo"] == attributes["id_modelo"]]
             matched_id_color = matched_id_modelo[matched_id_modelo["color"] == attributes["color"]]
             matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == attributes["almacenamiento"]]
@@ -165,7 +166,7 @@ def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_exc
         excel_row = excel_df[excel_df["prod"].str.contains(pattern)]
         if excel_row.empty:
              # Match id_modelo, color, almacenamiento, estado, reacondicionado
-            attributes = _get_attributes_from_sku(str(prod))
+            attributes = get_attributes_from_sku(str(prod))
             matched_id_modelo = excel_df[excel_df["id_modelo"] == attributes["id_modelo"]]
             matched_id_color = matched_id_modelo[matched_id_modelo["color"] == attributes["color"]]
             matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == attributes["almacenamiento"]]
@@ -186,6 +187,57 @@ def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_exc
     _save_dataframe_to_excel(excel_df, output_excel_path)
 
     return excel_df
+
+
+def create_sheet_for_sku(excel_path: str, sku: str, output_excel_path: str):
+    wb = openpyxl.load_workbook(excel_path)
+
+    # Check if sheet exists
+    if sku in wb.sheetnames:
+        print(f"Sheet {sku} already exists")
+        return
+    else:
+        # Create sheet
+        wb.create_sheet(sku)
+
+    # Add columns: marketplace, status, self price, best price, best seller, second price, second seller, third price, third seller, url
+    sheet = wb[sku]
+    sheet["A1"] = "marketplace"
+    sheet["B1"] = "status"
+    sheet["C1"] = "self price"
+    sheet["D1"] = "best price"
+    sheet["E1"] = "best seller"
+    sheet["F1"] = "second price"
+    sheet["G1"] = "second seller"
+    sheet["H1"] = "third price"
+    sheet["I1"] = "third seller"
+    sheet["J1"] = "url"
+
+    # Save
+    wb.save(output_excel_path)
+
+
+def add_prices_by_sku_and_market(excel_path: str, sku: str, marketplace: str, status: str, self_price: str, prices: dict, url: str):
+    wb = openpyxl.load_workbook(excel_path)
+    sheet = wb[sku]
+
+    # Check if sheet exists
+    if sku not in wb.sheetnames:
+        print(f"Sheet {sku} does not exists")
+        return
+
+    # Add row with: marketplace, status, self price, best price, best seller, second price, second seller, third price, third seller, url
+    row = sheet.max_row + 1
+    sheet[f"A{row}"] = marketplace
+    sheet[f"B{row}"] = status
+    sheet[f"C{row}"] = self_price
+    for i, (seller, price) in enumerate(prices.items()):
+        sheet[f"{chr(ord('D') + (i * 2))}{row}"] = price
+        sheet[f"{chr(ord('E') + (i * 2))}{row}"] = seller
+    sheet[f"J{row}"] = url
+
+    # Save
+    wb.save(excel_path)
 
 
 if __name__ == "__main__":
