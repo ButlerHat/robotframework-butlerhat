@@ -162,7 +162,7 @@ Click at marketplaces button for sku ${sku}
 In which marketplaces is it being sold?
     ${bbox}  Get Element Bounding Box of marketplaces
     ${marketplaces}  Get Text From Bbox    selector_bbox=${bbox}
-    @{marketplaces}  Set Variable  ${marketplaces.replace('\n', '').split(':')[-1].replace('CicloZero', '').split(',')}
+    @{marketplaces}  Set Variable   ${marketplaces.split('\n')[-1].split(',')}
     ${strip_marketplaces}  Evaluate  [x.strip() for x in ${marketplaces}]
     RETURN  ${strip_marketplaces}
 
@@ -185,7 +185,7 @@ Get Bounding box of the link in the ${marketplace} row
 Get status for ${market}
     ${bbox}  Get Element Bounding Box of the status of the ${market} row
     ${status}  Get Text From Bbox    selector_bbox=${bbox}
-    RETURN  ${status.replace('\n', '').split(' ')[-1]}
+    RETURN  ${status}
 
 Get Element Bounding Box of the status of the ${market} row
     # Make sure the row is visible
@@ -198,7 +198,7 @@ Get price for ${market}
     RETURN  ${price.replace('\n', '').split(' ')[-1]}
 
 Get Element Bounding Box of the price of the ${market} row
-    ${loc}  Set Variable  //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${market}')][2]/div[6]//kat-input-group
+    ${loc}  Set Variable  //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${market}')][2]/div[6]//kat-input-group//kat-input
     ${bbox}  Element Bbox  ${loc}
     RETURN  ${bbox}
 
@@ -217,29 +217,34 @@ Click on search icon
 See Renewed at the right above sell on Amazon
     Click  //div[@class='a-box-inner'][.//div[@class='olp-text-box']]
 
-Click on filter at the right
+Open filter at the right
     Click  //*[@id='aod-filter-string']
+    # Check if the filter is open
+    ${STATUS}  ${MSG}  Run keyword and ignore error  Wait For Elements State   //*[@id="new"]/div/label/input  visible  1
+    IF  '${STATUS}' == 'FAIL'  Click  //*[@id='aod-filter-string']
+
+Close filter if not open
+    ${STATUS}  ${MSG}  Run keyword and ignore error  Wait For Elements State   //*[@id="new"]/div/label/input  visible  1
+    IF  '${STATUS}' == 'PASS'  Click  //*[@id='aod-filter-string']
 
 Check ${condition} condition checkbox
     &{types_dict}  Create Dictionary  Renewed=new  Used=used  Like New=usedLikeNew  Very Good=usedVeryGood  Good=usedGood  Acceptable=usedAcceptable
     ${value}  Get From Dictionary    ${types_dict}  ${condition}
     Click  //*[@id="${value}"]/div/label/input
 
-
-
 Get three first lowest price
     # Create dict to store prices
     &{prices}  Create Dictionary
     ${num_elements}  Get Element Count  //*[@id='aod-offer']
-    ${num_elements}  Evaluate  min(3, ${num_elements})
+    ${num_elements}  Evaluate  min(5, ${num_elements})
 
     FOR  ${i}  IN RANGE  ${num_elements}
         ${ord_num}  Get Ordinal    number=${i+1}
 
         # Get best price
-        ${bbox_price}  Get element bounding box of the price of the ${ord_num} option
-        ${price}  Get Text From Bbox    ${bbox_price}  array
-        ${price}  Evaluate  ''.join(${price[:3]})
+        ${bbox_price}  ${text}  Get element bounding box of the price of the ${ord_num} option
+        ${text_bbox}  IF  not "${text}"  Get Text From Bbox    ${bbox_price}
+        ${price}  Set Variable If  not "${text}"  ${text_bbox}  ${text}
         ${bbox}  Get element bounding box of the seller of the ${ord_num} option
         ${seller}  Get Text From Bbox    ${bbox}
 
@@ -252,7 +257,10 @@ Get three first lowest price
 Get element bounding box of the price of the ${ord_num} option
     ${num}  Get Cardinal  ${ord_num} 
     ${bbox}  Element Bbox  (//*[@id='aod-offer'][${num}]//*[contains(text(),'€')][not(contains(text(),'no'))])[1]
-    RETURN  ${bbox}
+    
+    # This is to get a better text, but Element BBox still here for IA training
+    ${text}  Get Text  (//*[@id='aod-offer'][${num}]//*[contains(text(),'€')][not(contains(text(),'no'))])[1]
+    RETURN  ${bbox}  ${text}
 
 Get element bounding box of the seller of the ${ord_num} option
     ${num}  Get Cardinal  ${ord_num}

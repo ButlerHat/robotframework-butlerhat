@@ -8,4 +8,5 @@ Iframe Scroll
     New Context    acceptDownloads=${TRUE}
     New Page   file:///workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/CicloZero/robotframework/modeling/iframe_training/index.html
     
-    Click  //iframe >>> //*[text()='Eric']
+    ${bbox}  Element Bbox  //iframe >>> //*[text()='Eric']
+    ${text}  Get Text From Bbox    ${bbox}

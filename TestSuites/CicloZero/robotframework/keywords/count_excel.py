@@ -231,9 +231,12 @@ def add_prices_by_sku_and_market(excel_path: str, sku: str, marketplace: str, st
     sheet[f"A{row}"] = marketplace
     sheet[f"B{row}"] = status
     sheet[f"C{row}"] = self_price
+    # Best 3 prices
     for i, (seller, price) in enumerate(prices.items()):
         sheet[f"{chr(ord('D') + (i * 2))}{row}"] = price
         sheet[f"{chr(ord('E') + (i * 2))}{row}"] = seller
+        if i == 2:
+            break
     sheet[f"J{row}"] = url
 
     # Save

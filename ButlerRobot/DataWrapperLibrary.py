@@ -183,6 +183,13 @@ class DataWrapperLibrary:
             self.last_pointer_xy
         )
     
+    def _update_start_observation_to_all_stack(self, observation) -> None:
+        for prev_step in self.exec_stack.get_stack():
+            if prev_step.context:
+                prev_step.context.start_observation = observation
+            else:
+                BuiltIn().log(f"Step {prev_step.name} has no context. No setting it", level="WARN", console=self.console)
+
     def _get_bbox_and_pointer(self, selector: str | BBox) -> tuple[None, None] | tuple[BBox, tuple]:
             """
             This method gets the BBox and pointer of a selector.
@@ -448,6 +455,11 @@ class DataWrapperLibrary:
         if has_only_substeps_tags(attrs['tags']):
             BuiltIn().log(f"Keyword {name} has only_substeps tag. Only substeps will be recorded", level="INFO", console=self.console)
             step.status = SaveStatus.only_substeps
+        
+        # All keywords of BuiltIn library are ignored
+        if attrs['libname'] == 'BuiltIn':
+            BuiltIn().log(f"Ignoring kw {name}. BuiltIn keyword", level="INFO", console=self.console)
+            step.status = SaveStatus.only_substeps
 
         # If only_actions: ignore PageAction keywords that are not actions by tag
         if not is_keyword_register_in_lib_as_action(step, attrs['tags']):
@@ -459,21 +471,6 @@ class DataWrapperLibrary:
             return
 
         # ============ COMPLETE STEP CONTEXT ============
-
-    	# Capture observation if browser is open and no observation was captured. This means is the first keyword after the open browser.
-        if self._is_browser_open():  # and self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
-            observation = self._get_observation()
-            # Update start observation of the rest of the step stack
-            if self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
-                for prev_step in self.exec_stack.get_stack():
-                    if prev_step.context:
-                        prev_step.context.start_observation = observation
-                    else:
-                        BuiltIn().log(f"Step {prev_step.name} has no context. No setting it", level="WARN", console=self.console)
-            self.last_observation = observation
-        
-        assert step.context, f"Step {step.name} has no context. Cannot set start_observation"
-        step.context.start_observation = self.last_observation
 
         # Change name with resolved variables
         name = attrs['kwname']
@@ -559,7 +556,7 @@ class DataWrapperLibrary:
             self.exec_stack.add_to_parent(step)
             BuiltIn().log(f"Step {step.name} stored", console=self.console, level="INFO")
         except Exception as e:
-            BuiltIn().log(f"Not recording {step.name}.Error adding to parent: {e}", console=self.console, level="WARN")
+            BuiltIn().log(f"Not recording {step.name}.Error adding to parent: {e}", console=self.console, level="ERROR")
         return
             
 
@@ -568,7 +565,7 @@ class DataWrapperLibrary:
     def __init__(self, library, console=True, record=True, output_path=None, all_json=False, only_actions=True):
         
         self._library = library
-        self.keyword_libraries = []
+        self.keyword_libraries = ['BuiltIn']
         self.only_actions = only_actions
         self.ROBOT_LIBRARY_LISTENER = self
         self.record = record
@@ -612,6 +609,7 @@ class DataWrapperLibrary:
 
         # This observation will be modified when browser opens
         self.last_observation = Observation(datetime.now(), "", "", (0, 0))
+        self.no_record_next_observation = False
         # Create task's steps list and stack for embedded tasks
         self.exec_stack: ExecStack = ExecStack()
         # Create a set of dom to save space disk
@@ -639,6 +637,7 @@ class DataWrapperLibrary:
             return super().__getattribute__(name)
 
     def run_keyword(self, name, args, kwargs=None):
+
         def complete_page_action(action: PageAction) -> PageAction:
             kw = name.lower().replace(' ', '').replace('_', '')
             string_kw = [k for k in self.typing_kw_stringpos.keys() if k in kw]
@@ -663,6 +662,25 @@ class DataWrapperLibrary:
 
             return action
 
+        def complete_start_context():
+            # Capture observation if browser is open and no observation was captured. This means is the first keyword after the open browser.
+            if self._is_browser_open():  # and self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
+                # Observation could be captured in complete page action
+                if self.no_record_next_observation:
+                    observation = self.last_observation
+                    self.no_record_next_observation = False
+                else:
+                    observation = self._get_observation()
+                # Update start observation of the rest of the step stack if no observation was captured
+                if self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
+                    self._update_observation_and_set_in_parents(observation)
+                # Update last observation of parents
+                self.last_observation = observation
+
+            assert step.context, f"Step {step.name} has no context. Cannot set start_observation"
+            self._update_observation_and_set_in_parents(self.last_observation)
+            step.context.start_observation = self.last_observation
+
         # ============ COMPLETE STEP ARGUMENTS ============
         # Complete step here since the variables only are resolved here
         if not self.exec_stack.is_empty():
@@ -679,7 +697,12 @@ class DataWrapperLibrary:
 
             # Updated and scrolled step
             self.exec_stack.push(step)
-        
+
+        # ============ START CONTEXT ============
+            # Not explicit wait because complete page action suppose to wait for the element
+            if step.status != SaveStatus.no_record:
+                complete_start_context()
+
         # ============ RUN KEYWORD ============
         # Keywords with @keyword decorator
         for n, value in self.keywords_decorator:
@@ -695,11 +718,7 @@ class DataWrapperLibrary:
                 return_value = self._library.run_keyword(name, args, kwargs)
         
         # ============ WAIT ACTION ============
-        if self._is_browser_open():
-            if not self.exec_stack.is_empty():
-                step = self.exec_stack.get_last_step()
-                if isinstance(step, PageAction) and step.status != SaveStatus.no_record:
-                    self._wait_for_browser()
+        # TODO: Wait now is manage before the action, in complete page action.
         
         return return_value
     

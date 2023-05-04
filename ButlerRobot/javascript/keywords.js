@@ -95,56 +95,134 @@ async function getElementBboxHighlighted(page) {
     });
   }
 
-  
-  async function getTextFromBboxWithJs(args, page) {
-    // args = [x1, y1, x2, y2]
-    return new Promise(async (resolve, reject) => {
-      try {
-        let text_array = await page.evaluate((args) => {
-          let [x1, y1, x2, y2] = args;
-          let elements = [];
-          let text_array = [];
-          
-          for (let x = x1; x < x2; x=x+5) {
-            for (let y = y1; y < y2; y=y+5) {
-              const element = document.elementFromPoint(x, y);
-              if (element && !elements.includes(element)) {
-                elements.push(element);
-              }
-            }
-          }
-
-          function getTextArray(element) {
-            if (element.nodeType === Node.TEXT_NODE) {
-              //trim whitespace
-              let text_content = element.textContent.trim();
-              console.log("Adding text: " + text_content)
-              //check if text array has the text already
-              if (text_array.indexOf(text_content) === -1)
-                text_array.push(text_content);
-            } else {
-              for (let child of element.childNodes) {
-                getTextArray(child);
-              }
-            }
-          }
-          
-          for (let i = 0; i < elements.length; i++) {
-            getTextArray(elements[i]);
-          }
-          return text_array;
-        }, args);
-  
-        resolve(text_array);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
-
-  async function getTextFromBboxWithJsv2(args, page) {
-    // args = [x1, y1, x2, y2]
+  async function getTextFromBboxWithJs(args, page, logger) {
+    const margin = 3;
+    let frame;
     
+    // Check if element is an iframe
+    let elmenetHandle = await page.evaluateHandle( (boundingBox) => {
+      let [x1, y1, x2, y2] = boundingBox;
+      const middleX = Math.floor((x1 + x2) / 2);
+      const middleY = Math.floor((y1 + y2) / 2);
+      return document.elementFromPoint(middleX, middleY);
+    }, args);
+
+    let tagName = await elmenetHandle.$eval('xpath=.', node => node.tagName)
+    if (tagName === "IFRAME") {
+      logger("Element is an iframe")
+      // Get frame
+      frame_url = await elmenetHandle.getAttribute("src");
+      logger("frame_url: " + frame_url)
+      // escape special characters
+      if (!RegExp.escape) {
+        RegExp.escape = function(s) {
+          return s.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
+        };
+      }
+      const url_escaped = RegExp.escape(frame_url);      
+      const url_regex = new RegExp(".*" + url_escaped + ".*");
+      logger("url_regex: " + url_regex)
+      frame = page.frame({ url: url_regex });
+      if (!frame) {
+        throw new Error("Frame not found with url: " + frame_url + ". And regex: " + url_regex);
+      }
+
+      // Adjust bounding box
+      let framePos = await elmenetHandle.boundingBox();
+      // Convert all elements of the object to integers
+      framePos = Object.keys(framePos).reduce((obj, key) => {
+        obj[key] = Math.floor(framePos[key]);
+        return obj;
+      }, {});
+
+      x1 = args[0] - framePos.x + margin;
+      y1 = args[1] - framePos.y + margin;
+      x2 = args[2] - framePos.x - margin;
+      y2 = args[3] - framePos.y - margin;
+      logger("Original bounding box: " + args)
+      logger("Adjusted bounding box: " + [x1, y1, x2, y2])
+
+    } else {
+      x1 = args[0] + margin;
+      y1 = args[1] + margin;
+      x2 = args[2] - margin;
+      y2 = args[3] - margin;
+      frame = page;
+    }
+
+    let elementHandle =  await frame.evaluateHandle( (boundingBox) => {
+
+      function getDistance(rect1, rect2) {
+        const [x1, y1, x2, y2] = rect1;
+        const [x3, y3, x4, y4] = rect2;
+        const points1 = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+        const points2 = [[x3, y3], [x4, y3], [x4, y4], [x3, y4]];
+        let distance = 0;
+        for (let i = 0; i < 4; i++) {
+          const [p1x, p1y] = points1[i];
+          let minDistance = Infinity;
+          for (let j = 0; j < 4; j++) {
+            const [p2x, p2y] = points2[j];
+            const d = Math.sqrt((p1x - p2x) ** 2 + (p1y - p2y) ** 2);
+            minDistance = Math.min(minDistance, d);
+          }
+          distance += minDistance;
+        }
+        return distance;
+      }
+
+      const [x1, y1, x2, y2] = boundingBox;
+      const middleX = Math.floor((x1 + x2) / 2);
+      const middleY = Math.floor((y1 + y2) / 2);
+      const middleElement = document.elementFromPoint(middleX, middleY);
+      console.log("middleElement: ")
+      console.log(middleElement)
+      let bbox_element = middleElement.getBoundingClientRect();
+      let bbox_list = [bbox_element.x, bbox_element.y, bbox_element.x + bbox_element.width, bbox_element.y + bbox_element.height];
+      let closestDistance = getDistance(bbox_list, boundingBox);
+      let closestElement = middleElement;
+
+      const points = [[x1, y1], [x2, y1], [x2, y2], [x1, y2]];
+
+      for (const point of points) {
+        const element = document.elementFromPoint(point[0], point[1]);
+        console.log("element " + point[0] + ", " + point[1] + ": ")
+        console.log(element)
+
+        if (element && element !== closestElement) {
+          bbox_element = element.getBoundingClientRect();
+          console.log("element bbox: " + JSON.stringify(bbox_element))
+          const bbox_element_list = [bbox_element.x, bbox_element.y, bbox_element.x + bbox_element.width, bbox_element.y + bbox_element.height]
+          const distance = getDistance(bbox_element_list, boundingBox);
+          console.log("distance: " + distance)
+          console.log("closestDistance: " + closestDistance)
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            console.log("closestElement: ")
+            console.log(element)
+            console.log("element text: " + element.innerText)
+            closestElement = element;
+          }
+        }
+      }
+
+      console.log("final closestElement: ");
+      console.log(closestElement);
+      console.log("element text: " + closestElement.innerText)
+      return closestElement;
+
+    }, [x1, y1, x2, y2]);
+
+    let text = await elementHandle.innerText();
+    // Find the first parent thata has text
+    if (text === "") {
+      // Try get input text with elementHandle.inputValue(). Catch error if not possible
+      try {
+        text = await elementHandle.inputValue();
+      } catch (error) {} 
+    }
+
+    return text;
   }
 
   async function examplePlaywrightToJS(page, args, logger) {

@@ -15,7 +15,7 @@ from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
-from ButlerRobot.src.data_types import BBox, PageAction, SaveStatus, Task
+from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus, Task
 
 
 class TextType(Enum):
@@ -108,7 +108,14 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return img_str
     
     def _is_browser_open(self):
-        return bool(self._library.get_browser_ids())
+        catalog = self._library.get_browser_catalog()
+        if not catalog or len(catalog) == 0:
+            return False
+        contexts = catalog[0]['contexts']
+        if not contexts or len(contexts) == 0:
+            return False
+        pages = contexts[0]['pages']
+        return pages and len(pages) > 0
     
     def _get_action_tags(self):
         return self.action_tags
@@ -120,7 +127,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return self._library.get_page_source()
 
     def _wait_for_browser(self):
-        BuiltIn().sleep(3)  # For safe recording
+        BuiltIn().sleep(0)  # For safe recording
 
     def _get_element_bbox_from_pointer(self, x, y) -> Optional[BBox]:
         x, y = str(x), str(y)
@@ -146,18 +153,38 @@ class DataBrowserLibrary(DataWrapperLibrary):
             BuiltIn().log(f'Error getting selector pointer and bbox: {e}', console=self.console)
             return None, None
         
+        # Get observation before scroll and after getting element
+        observation = self._get_observation()
+        # Could be the first observation of the test. Updating first observation
+        if self.last_observation == Observation(datetime.datetime.now(), "", "", (0, 0)):
+            self._update_start_observation_to_all_stack(observation)
+        self.last_observation = observation
+        self.observation_before_scroll = self.last_observation
+        
         # Scroll up if needed
         if bbox_['y'] < 0:
             # Go to the top of the page
             self._scroll_to_top()
             self._update_observation_and_set_in_parents()
 
-        self.observation_before_scroll = self.last_observation
+        scroll_dict = None
+        additional_err = ""
+        try:
+            scroll_dict = self._library.scrollElementIfNeeded(selector)
+        except Exception as e:
+            if "Unknown engine" in str(e):
+                # This error is raised when the locator is not native to playwright
+                level = 'DEBUG'
+            else:
+                level = 'WARN'
+                additional_err = "Element could be scrolled but the bbox is not updated."
+            BuiltIn().log(f'Error in _retrieve_bbox_and_pointer_from_page when trying to scroll with scrollElementIfNeeded: {additional_err}. {e}', console=self.console, level=level)
 
-        scroll_dict = self._library.scrollElementIfNeeded(selector)
         if not scroll_dict:
-            BuiltIn().log(f'Error in _retrieve_bbox_and_pointer_from_page when trying to scroll with scrollElementIfNeeded. Error scrolling element {selector}', console=self.console)
-            return None, None
+            return (
+                BBox(**bbox_),
+                (bbox_['x'] + bbox_['width'] / 2,  bbox_['y'] + bbox_['height'] / 2)
+            )
         
         if scroll_dict['is_element_scrolled']:
             bbox_ = scroll_dict['el_bbox_after_scroll']
@@ -178,6 +205,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
                 # The start observation will be modified inside the keyword.
                 bbox_arg: BBox = BBox(**scroll_dict['parent_bbox_before_scroll'])
                 BuiltIn().run_keyword('Scroll Down At BBox', bbox_arg)
+        else:
+            # For efficiency, don't update observation in complete_start_context
+            self.no_record_next_observation = True 
 
         
         return (
@@ -195,8 +225,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
         current_action = self.exec_stack.remove_action()
 
         # Replace with Click at BBox
-        assert current_action.action_args.bbox, 'Trying to input text. The PageAction has no bbox'
         try:
+            assert current_action.action_args.bbox, 'Trying to input text. The PageAction has no bbox'
             BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
             # Add Keyboard Input
             BuiltIn().run_keyword('Keyboard Input', text)
@@ -213,8 +243,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
         current_action = self.exec_stack.remove_action()
 
         # Replace with Click at BBox
-        assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Could be be a bad selector'
         try:
+            assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Could be be a bad selector'
             BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
         finally:
             # Push keyword to ignore in end_keyword
@@ -437,7 +467,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return bbox
     
     @keyword(name="Get Text From BBox", tags=['task', 'no_record'])
-    def get_text_from_bbox(self, selector_bbox: BBox | str, return_type: TextType = TextType.string) -> str | list[str]:
+    def get_text_from_bbox(self, selector_bbox: BBox | str, return_type: TextType = TextType.string, with_ocr: bool = True) -> str | list[str]:
         """
         Get the text from a BBox.
         Param selector: Selector of the element.
@@ -464,7 +494,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
             BuiltIn().log(f'Error at Get Text From BBox. The bbox is out of the viewport. BBox: {bbox.to_dict()}', 'WARN', console=True)
             return ''
         text = self._library.getTextFromBboxWithJs(bbox.x, bbox.y, bottom_right[0], bottom_right[1])
-        if not text:
+        if not text and with_ocr:
+            BuiltIn().log(f'Getting text with JavaScript failed. Trying with OCR', console=True)
             img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
             text = get_all_text(self.ocr_url, img)
         if not text:

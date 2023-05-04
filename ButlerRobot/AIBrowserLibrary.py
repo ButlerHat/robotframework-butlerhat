@@ -216,9 +216,10 @@ class AIBrowserLibrary(DataBrowserLibrary):
         if 'wait' in mode_in_prompt.lower():
             # Get with regex the number after wait
             sleep_time = re.findall(r'wait\s*(\d+)', mode_in_prompt.lower())
-            if sleep_time:
-                sleep_time = int(sleep_time[0])
-                BuiltIn().run_keyword('Sleep', sleep_time)
+            # Sleep 1 seconds by default
+            sleep_time = int(sleep_time[0]) if sleep_time else 1
+            BuiltIn().run_keyword('Sleep', sleep_time)
+
         
     def _run_action(self, instruction: str, action_and_args: tuple, mode: AIMode):
         # If the action is flexible don't check

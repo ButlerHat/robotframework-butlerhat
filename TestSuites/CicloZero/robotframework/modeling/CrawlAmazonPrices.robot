@@ -25,7 +25,7 @@ ComparePrices
     Comment  Obtener inventario de Odoo
     New Browser    chromium    headless=false  downloadsPath=${OUTPUT_DIR}${/}downloads
     New Context    acceptDownloads=${TRUE}
-    Wait New Page   ${URL_AMAZON}  wait=${1}
+    New Page   ${URL_AMAZON}
 
     Login with user ${amazon_user} and pass ${amazon_pass}
     AI.Click on Indicar contraseña de un solo uso desde la app de verificación
@@ -64,14 +64,12 @@ ComparePrices
         Run Keyword And Ignore Error    Accept cookies
 
         See Renewed at the right above sell on Amazon
-        Click on filter at the right
+        Open filter at the right
         Check ${filter_val} condition checkbox
+        Close filter if not open
         
-
-        Set Browser Wait Time  0
         &{market_prices}  Get three first lowest price
         Add Prices By Sku And Market    ${SKU_EXCEL_PATH}    ${sku}    ${market}    ${status}    ${self_price}    ${market_prices}    ${url}
-        Set Browser Wait Time  ${ROBOT_BROWSER_WAIT}
 
         Close Page
     END
