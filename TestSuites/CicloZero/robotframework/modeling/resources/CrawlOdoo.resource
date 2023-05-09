@@ -35,7 +35,7 @@ Click on left right arrow icon under actualizar la cantidad
     Click  //button[@aria-label='Invertir ejes']
 
 Click on cell in the Alm/Stock venta row and column Total
-    CLick  //table/tbody/tr[10]/td
+    Click  //table/tbody/tr[contains(., 'Stock venta')]/td
 
 Click on select all box in the table
     Click  //th[@style='width: 48px;']

@@ -1,0 +1,27 @@
+version: '3.7'
+services:
+  ciclozero:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        USER_ID: ${USER_ID}
+        GROUP_ID: ${GROUP_ID}
+        GITHUB_TOKEN: ${GITHUB_TOKEN}
+    container_name: ciclozero
+    user: vscode
+    volumes:
+      - ..:/workspaces/CicloZero:cached
+    cap_add:
+      - SYS_ADMIN
+    shm_size: '2gb'
+    networks:
+      - external
+    environment:
+      - ROBOT_CICLOZERO_PASS=${ROBOT_CICLOZERO_PASS:-0}
+      - DEVELOPMENT_SERVER=${DEVELOPMENT_SERVER:-0}
+    command: /bin/sh -c "while sleep 1000; do :; done"
+
+networks:
+  external:
+    name: net_robot

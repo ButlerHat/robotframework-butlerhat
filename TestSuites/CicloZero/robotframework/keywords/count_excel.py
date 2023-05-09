@@ -77,10 +77,13 @@ def get_attributes_from_sku(sku: str) -> dict[str, str]:
         "B+": "NUEVO",
         "B": "NUEVO",
         "C": "MEDIO",
-        "D": "BAJO"
+        "D": "BAJO",
+        "ASIS": "IGNORE"
     }
 
     attributes = sku.split("-")
+    assert attributes[3].strip().upper() in gropus_estado.keys(), f"Estado {attributes[3].strip().upper()} not in {gropus_estado.keys()}"
+
     attributes_dict = {
         "id_modelo": attributes[0].upper(),
         "color": attributes[1].upper(),
@@ -144,6 +147,10 @@ def append_tsv_to_main_excel(tsv_path: str, excel_path:str, output_excel_path: s
             if len(matched_id_reacondicionado) == 1:
                 print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
                 excel_df.loc[matched_id_reacondicionado.index, "amz unshipped"] = model_count.loc[i, "count"]  # type: ignore
+            elif len(matched_id_reacondicionado) > 1:
+                # Assign to the one with calidad = A
+                print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
+                excel_df.loc[ matched_id_calidad[matched_id_calidad["calidad"] == 'A'], "amz unshipped"] = model_count.loc[i, "count"]  # type: ignore
             else:
             # No match
                 new_row = [prod, "", model_count.loc[i, "count"]] + [""] * (len(excel_df.columns) - 3)
@@ -169,13 +176,17 @@ def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_exc
             attributes = get_attributes_from_sku(str(prod))
             matched_id_modelo = excel_df[excel_df["id_modelo"] == attributes["id_modelo"]]
             matched_id_color = matched_id_modelo[matched_id_modelo["color"] == attributes["color"]]
-            matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == attributes["almacenamiento"]]
+            matched_id_almacenamiento = matched_id_color[matched_id_color["almacenamiento"] == int(attributes["almacenamiento"])]
             matched_id_calidad = matched_id_almacenamiento[matched_id_almacenamiento["estado"] == attributes["estado"]]
             matched_id_reacondicionado = matched_id_calidad[matched_id_calidad["reacondicionado"] == attributes["reacondicionado"]]
 
             if len(matched_id_reacondicionado) == 1:
                 print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
                 excel_df.loc[matched_id_reacondicionado.index, "amz pending"] = count
+            elif len(matched_id_reacondicionado) > 1:
+                # Assign to the one with calidad = A
+                print(f'Sku "{prod}" matched with "{matched_id_reacondicionado.iloc[0]["prod"]}" ignoring calidad')
+                excel_df.loc[matched_id_calidad[matched_id_calidad["calidad"] == 'A'].index, "amz pending"] = count
             else:
                 new_row = [prod, "", "", count] + [""] * (len(excel_df.columns) - 4)
                 excel_df.loc[len(excel_df)] = new_row # type: ignore
@@ -237,6 +248,29 @@ def add_prices_by_sku_and_market(excel_path: str, sku: str, marketplace: str, st
         sheet[f"{chr(ord('E') + (i * 2))}{row}"] = seller
         if i == 2:
             break
+    sheet[f"J{row}"] = url
+
+    # Save
+    wb.save(excel_path)
+
+def add_price_not_found_by_sku(excel_path: str, sku: str, marketplace: str, status: str, self_price:str, url: str):
+    wb = openpyxl.load_workbook(excel_path)
+    sheet = wb[sku]
+
+    # Check if sheet exists
+    if sku not in wb.sheetnames:
+        print(f"Sheet {sku} does not exists")
+        return
+
+    # Add row with: marketplace, status, self price, best price, best seller, second price, second seller, third price, third seller, url
+    row = sheet.max_row + 1
+    sheet[f"A{row}"] = marketplace
+    sheet[f"B{row}"] = status
+    sheet[f"C{row}"] = self_price
+    # Add 'not found' to all prices
+    for i in range(3):
+        sheet[f"{chr(ord('D') + (i * 2))}{row}"] = "not found"
+        sheet[f"{chr(ord('E') + (i * 2))}{row}"] = "not found"
     sheet[f"J{row}"] = url
 
     # Save

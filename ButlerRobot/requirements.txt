@@ -1,5 +1,5 @@
 wheel
-robotframework-browser
+robotframework-browser>=16.0.5
 robotframework-seleniumlibrary
 fastdeploy-python
 pillow

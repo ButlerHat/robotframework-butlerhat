@@ -2,9 +2,9 @@
 Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  record=${True}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
 Library   OTP
 Library   Collections
-Library   ../keywords/count_excel.py
-Resource   ./resources/CrawlAmazon.resource
-Variables  ../variables/credentials.py
+Library   ./robotframework/keywords/count_excel.py
+Resource   ./robotframework/modeling/resources/CrawlAmazon.resource
+Variables  ./robotframework/variables/credentials.py
 Suite Setup  Browser.Add Task Library    CrawlAmazon
 
 
@@ -62,7 +62,7 @@ ComparePrices
 
         ${url}  Go to page of the ${market} row
         Run Keyword And Ignore Error    Accept cookies
-
+        
         TRY
             See Renewed at the right above sell on Amazon
         EXCEPT

@@ -2,6 +2,8 @@
 # https://github.com/robocorp/rcc/blob/master/docs/recipes.md#what-is-in-condayaml
 # Tip: Adding a link to the release notes of the packages helps maintenance and security.
 
+name: web_env
+
 channels:
   - conda-forge
 
@@ -9,13 +11,10 @@ dependencies:
   # Define conda-forge packages here -> https://anaconda.org/search
   # When available, prefer the conda-forge packages over pip as installations are more efficient.
   - python=3.10                 # https://pyreadiness.org/3.10/ 
-  - nodejs=16.14.2              # https://github.com/nodejs/node/blob/main/CHANGELOG.md
   - pip=22.1.2                  # https://pip.pypa.io/en/stable/news/
   - pip:
       # Define pip packages here -> https://pypi.org/
-      - git+https://{GITHUB_ACCESS_TOKEN}@github.com/ButlerHat/robotframework-dist-butlerhat.git
-      - robotframework-otp
-      - pyotp
-
-rccPostInstall:
-  - rfbrowser init                    # Initialize Playwright
+      - streamlit
+      - streamlit-option-menu
+      - croniter
+      - openpyxl

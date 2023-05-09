@@ -78,6 +78,7 @@ Change Results per page to ${num}
     Set Results per page to ${num}
 
 Change Results per page
+    Sleep  2
     Click  //*[@id='a-autoid-1-announce']
 
 Set Results per page to ${num}
@@ -88,17 +89,30 @@ How many orders are Pending?
     [Documentation]  The pending tab must be active
     ${bbox}  Get Element Bounding Box of the "Pending" tab    
     ${txt}  Get Text From Bbox    selector_bbox=${bbox}
-    RETURN  ${txt.split('\n')[0].strip()}
+    RETURN  ${txt.split(' ')[0].strip()}
 
 Get Element Bounding Box of the "Pending" tab
     ${bbox}  Element Bbox  //div[contains(@class, 'active')]
     RETURN  ${bbox}
 
+Remove Warnings In Table
+    [Tags]  no_record
+    Evaluate JavaScript  ${None}    const table = document.getElementById('orders-table');
+    ...  // Get a list of all table rows with the class 'myo-table-row warning'
+    ...  const rowsToDelete = table.querySelectorAll('.myo-table-row.warning');
+    ...    // Loop through each row and remove it from the table
+    ...    rowsToDelete.forEach(row => {
+    ...    const tdCount = row.getElementsByTagName('td').length;
+    ...    if (tdCount < 2) {
+    ...    row.parentNode.removeChild(row);
+    ...    }});
+
+
 Which is the number of the second column of the ${ord_num} row?
     [Documentation]  The pending tab must be active. Obtain text with the locator, not AI
     ${num_bbox}  Get element bounding box of the second column of the ${ord_num} order
-    ${asin_num}  Get Text From Bbox    selector_bbox=${num_bbox}  return_type=array
-    RETURN  ${asin_num[0]}
+    ${asin_num}  Get Text From Bbox    selector_bbox=${num_bbox}
+    RETURN  ${asin_num.split('\n')[0].strip()}
 
 Get element bounding box of the second column of the ${ord_num} order
     [Documentation]  Get the element second column bounding box. If you want to give a clue to the AI you can set "${NEXT_OBSERVATION}" variable.
@@ -112,7 +126,7 @@ Which is the SKU of the order ${2nd_col_num}?
     ${sku_bbox}  Get element bounding box of the sku of the ${2nd_col_num} order
     ${sku}  Get Text From Bbox    selector_bbox=${sku_bbox}
     # Remove the "SKU: " part
-    RETURN  ${sku.replace('SKU', "").replace(':', "").strip()}
+    RETURN  ${sku.split(':')[-1].strip()}
 
 Get element bounding box of the sku of the ${2nd_col_num} order
     [Documentation]  Get the element sku bounding box. 

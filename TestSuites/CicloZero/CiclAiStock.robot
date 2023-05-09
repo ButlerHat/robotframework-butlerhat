@@ -165,6 +165,10 @@ Get Pending Amazon
     ${NEXT_OBSERVATION}  Set Variable
     Set Global Variable    ${NEXT_OBSERVATION}
     ${num_pending}  Evaluate  ${num_pending} +1
+
+    # This Javascript is for removing warning in the table
+    Remove Warnings In Table
+
     FOR  ${i}  IN RANGE  1  ${num_pending}
         ${ord_num}  Get Ordinal    number=${i}
         ${2nd_col_num}  Which is the number of the second column of the ${ord_num} row?
