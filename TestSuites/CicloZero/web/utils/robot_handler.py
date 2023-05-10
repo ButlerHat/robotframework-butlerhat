@@ -16,22 +16,26 @@ def get_robot_command(id, vars, robot):
 async def run_robot(id: str, vars: list, robot: str, msg=None):
     robot_path = st.secrets.paths.robot
     result_path = os.path.join(robot_path, "results", id)
+    # If directory does not exist, create it
+    if not os.path.exists(result_path):
+        os.makedirs(result_path)
+
     robot_command = get_robot_command(id, vars, robot)
 
     # Move to robot directory
-    print(f"Running {robot_command}")
+    print(f"Running {robot_command} \n")
     msg_ = f"Running {robot}" if not msg else msg
 
     with st.spinner(msg_):
+        proc = await asyncio.create_subprocess_shell(
+            f"{robot_command}",
+            stdout=asyncio.subprocess.PIPE, 
+            stderr=asyncio.subprocess.PIPE)
+        stdout, stderr = await proc.communicate()
+        ret_val = proc.returncode
         with open(os.sep.join([robot_path, "results", id, f'logfile_out_{id}.txt']), 'w') as f2:
-            proc = await asyncio.create_subprocess_shell(
-                f"{robot_command}",
-                stdout=asyncio.subprocess.PIPE, 
-                stderr=asyncio.subprocess.PIPE)
-            stdout, stderr = await proc.communicate()
             f2.write(stdout.decode())
             f2.write(stderr.decode())
-            ret_val = proc.returncode
 
     if ret_val != 0:
         # Check if there is a msg file

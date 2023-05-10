@@ -1,5 +1,5 @@
 *** Settings ***
-Library    ButlerRobot.AIBrowserLibrary  record=${True}  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}${/}data  WITH NAME  Browser 
+Library    ButlerRobot.AIBrowserLibrary  record=${False}  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}${/}data  WITH NAME  Browser 
 Library    ./robotframework/keywords/count_excel.py
 Library    OTP
 Library    Collections
@@ -25,8 +25,6 @@ ${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.full.result.xlsx
 *** Test Cases ***
 CiclAI Stock
     [Documentation]  Creacion de excel para hacer el control de stock. Se usan las páginas de Odoo y Amazon.
-    ${pass}  Evaluate  os.environ.get('ROBOT_CICLOZERO_PASS')  modules=os
-    Log to console  ${pass}
     # ================== Odoo ==================
     ${return_excel}  Get Stocks Odoo
     Create Excel    ${return_excel}    ${RESULT_EXCEL_PATH_ODOO}
@@ -106,6 +104,7 @@ Get Unshipped Amazon
     ${init_time}  Evaluate  time.time()
     WHILE  ${TRUE}
         Click at "Refresh" button at the top right of the table
+        Sleep  3
         ${bbox}  Get element bouding box at first row and "download" column at Download Report table
         ${txt}  Get Text From Bbox    selector_bbox=${bbox}
         ${contains}  Evaluate  "download" in "${txt.lower()}"

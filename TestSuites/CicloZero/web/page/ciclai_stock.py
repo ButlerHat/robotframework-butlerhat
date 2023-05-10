@@ -4,6 +4,7 @@ import datetime
 import streamlit as st
 import utils.cron as cron
 import utils.robot_handler as robot_handler
+import utils.excel as excel
 import utils.vnc as vnc
 
 ## Create a function to display a title of "Ciclai Stock", a Run button and a cron field to schedule the task
@@ -68,7 +69,7 @@ def ciclai_stock():
 
     # VNC
     with col2:
-        vnc.vnc("http://localhost:6081/")
+        vnc.vnc("https://ciclozero_vnc.butlerhat.com/")
         st.caption("VNC password: vscode")
     
     with col1:
@@ -87,6 +88,33 @@ def ciclai_stock():
         if os.path.exists(os.path.join(stock_path, excel_name)):
             st.markdown(f'### Download <span style="color:{excel_name}">CiclAI</span>', unsafe_allow_html=True)
             with open(os.path.join(stock_path, excel_name), 'rb') as f:
-                st.download_button(label=excel_name, data=f, file_name=excel_name)
+                st.download_button(label=excel_name, data=f, file_name=excel_name, key='stock_excel')
         else:
             st.info(f"Excel not generated")
+
+    # Show excel
+    st.markdown("## Download last excel")
+    stock_path = st.secrets.paths.stock_excel
+    stock_excels = [os.path.join(stock_path, f) for f in os.listdir(stock_path) if os.path.isfile(os.path.join(stock_path, f))]
+    stock_excels = [f for f in stock_excels if f.endswith(".xlsx")]
+    stock_excels.sort(key=os.path.getmtime, reverse=True)
+    stock_names = [os.path.basename(f) for f in stock_excels]
+
+    option = st.selectbox("Select a stock excel", stock_names)
+    if option is None:
+        st.info("No excel found")
+        return
+
+    last_file = os.path.join(stock_path, option)
+    # Download excel
+    with open(last_file, 'rb') as f:
+        st.download_button(label=option, data=f, file_name=option, key='last_excel')
+
+    # Show excel
+    st.markdown("## Show last excel")
+    df = excel.load_excel_file(last_file)
+    # Replace NaN with 0
+    df = df.fillna(0)
+    get_total = lambda count, amz_unshipped, amz_pending, flendu: count - amz_unshipped - amz_pending - flendu
+    df['Total'] = df.apply(lambda row: get_total(row['count'], row['amz unshipped'], row['amz pending'], row['flend']), axis=1)
+    st.dataframe(df)

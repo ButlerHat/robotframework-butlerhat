@@ -247,7 +247,7 @@ def add_prices_by_sku_and_market(excel_path: str, sku: str, marketplace: str, st
     # Best 3 prices. Sort dict by value
     sorted_prices = {k: v for k, v in sorted(prices.items(), key=lambda item: item[1])}
 
-    for i, (seller, price) in enumerate(sorted_prices):
+    for i, (seller, price) in enumerate(sorted_prices.items()):
         sheet[f"{chr(ord('D') + (i * 2))}{row}"] = price
         sheet[f"{chr(ord('E') + (i * 2))}{row}"] = seller
         if i == 2:

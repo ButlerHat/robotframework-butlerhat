@@ -13,6 +13,8 @@ USER root
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends poppler-utils ffmpeg libsm6 libxext6 cron
 
+RUN wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && dpkg -i cloudflared-linux-amd64.deb
+
 ENV PATH=/home/$UNAME/.local/bin:$PATH
 
 # Copy RobotLibraries.

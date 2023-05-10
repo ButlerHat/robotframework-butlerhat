@@ -5,7 +5,7 @@ from page.ciclai_price import ciclai_price
 
 st.set_page_config(
     page_title="CiclAI",
-    page_icon="🧊",
+    page_icon=":tophat:",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={

@@ -1,5 +1,5 @@
 *** Settings ***
-Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  console=${False}  record=${True}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  console=${False}  record=${False}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
 Library   OTP
 Library   Collections
 Library   ./robotframework/keywords/count_excel.py
@@ -16,7 +16,7 @@ ${ROBOT_BROWSER_WAIT}  1
 
 ${RETURN_FILE}  ${OUTPUT_DIR}${/}return_msg.txt
 
-${SKU}  iP12PR-SL-128-A -R
+${SKU}  iP13-RD-128-B -R
 ${STOCK_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.full.result.xlsx
 ${SKU_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.${SKU}.xlsx
 
@@ -45,6 +45,7 @@ ComparePrices
     Go to "Inventory" at the left
     Go to "Manage All Inventory" submenu
     
+    Create Sheet For Sku  ${SKU}  ${SKU_EXCEL_PATH} 
     Search for SKU ${sku}
     TRY
         Click at marketplaces button for sku ${sku}
@@ -61,8 +62,7 @@ ComparePrices
     ${filter_val}  Get From Dictionary  ${filter_dict}  ${status}
     
     Comment  Get markets for sku
-    &{markets_prices}  Create Dictionary
-    Create Sheet For Sku  ${SKU}  ${SKU_EXCEL_PATH}  
+    &{markets_prices}  Create Dictionary 
 
     FOR  ${market}  IN   @{marketplaces}
         ${status}  Get status for ${market}
@@ -78,9 +78,7 @@ ComparePrices
             Close Page
             CONTINUE
         END
-        Open filter at the right
-        Check ${filter_val} condition checkbox
-        Close filter if not open
+        Wait Until Keyword Succeeds    1m    30s    Filter with condition ${filter_val}
         
         &{market_prices}  Get three first lowest price
         Add Prices By Sku And Market    ${SKU_EXCEL_PATH}    ${sku}    ${market}    ${status}    ${self_price}    ${market_prices}    ${url}
@@ -88,3 +86,9 @@ ComparePrices
         Close Page
     END
 
+
+*** Keywords ***
+Filter with condition ${filter_val}
+    Open filter at the right
+    Check ${filter_val} condition checkbox
+    Close filter if not open

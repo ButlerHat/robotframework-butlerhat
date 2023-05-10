@@ -7,7 +7,6 @@ import streamlit as st
 import utils.vnc as vnc
 import utils.robot_handler as robot_handler
 import utils.excel as excel
-from urllib.request import urlopen
 
 
 def ciclai_price():
@@ -20,26 +19,24 @@ def ciclai_price():
     
     uploaded_file = st.file_uploader("Choose a excel")
     if uploaded_file is None:
-        st.warning("Please upload a file. The robot won't work without it")
-        
-        # TODO: Remove this
-        uploaded_file = "/workspaces/CicloZero/downloads/stock/stock.quant.full.result.xlsx"
+        st.info("You can upload a file, using last created.")
 
-    # Get last file in stock folder
-    stock_path = st.secrets.paths.stock_excel
-    stock_excels = [os.path.join(stock_path, f) for f in os.listdir(stock_path) if os.path.isfile(os.path.join(stock_path, f))]
-    stock_excels = [f for f in stock_excels if f.endswith(".xlsx")]
-    stock_excels.sort(key=os.path.getmtime, reverse=True)
-    stock_names = [os.path.basename(f) for f in stock_excels]
+        # Get last file in stock folder
+        stock_path = st.secrets.paths.stock_excel
+        stock_excels = [os.path.join(stock_path, f) for f in os.listdir(stock_path) if os.path.isfile(os.path.join(stock_path, f))]
+        stock_excels = [f for f in stock_excels if f.endswith(".xlsx")]
+        stock_excels.sort(key=os.path.getmtime, reverse=True)
+        stock_names = [os.path.basename(f) for f in stock_excels]
 
-    option = st.selectbox("Select a stock excel", stock_names)
-    if option is not None:
-        uploaded_file = os.path.join(stock_path, option)
+        option = st.selectbox("Select a stock excel", stock_names)
+        if option is not None:
+            uploaded_file = os.path.join(stock_path, option)
         
     # SKUs table
     st.markdown("# Select SKUs")
     if uploaded_file is not None:
-        skus_df = excel.get_skus_df(uploaded_file)
+        compute_all = st.checkbox("Compute all SKUs", value=True)
+        skus_df = excel.get_skus_df(uploaded_file, compute_all)
         edited_df = st.experimental_data_editor(skus_df, use_container_width=True)
     else:
         edited_df = None
@@ -51,7 +48,7 @@ def ciclai_price():
 
     # VNC
     with col2:
-        vnc.vnc("http://localhost:6081/")
+        vnc.vnc("https://ciclozero_vnc.butlerhat.com/")
         st.caption("VNC password: vscode")
     
     with col1:
@@ -76,13 +73,13 @@ def ciclai_price():
     # Show statistics
     st.markdown("# Show statistics")
     if df_prices is not None:
+        st.markdown("## Prices per SKU")
+        show_statistics_plot(df_prices)
+
         st.markdown("## Rise the price")
         st.info("The following statistics are calculated only for products where the best price is greater than the self price")
         show_statistics_pie(df_prices)
         show_statistics_pie_per_sku(df_prices)
-        
-        st.markdown("## Prices per SKU")
-        show_statistics_plot(df_prices)
 
 
 async def run_robots(uploaded_file, skus):
@@ -130,7 +127,7 @@ def show_statistics_plot(df):
     df = excel.clean_df_for_statistics(df)
 
     # Define a list of countries
-    countries = ['Germany', 'Netherlands', 'Italy', 'Spain', 'France']
+    countries = ['Spain', 'France', 'Italy', 'Germany', 'Netherlands']
     # Loop through each country
     for country in countries:
         # Define the self price and best price column names
@@ -199,18 +196,39 @@ def show_statistics_plot(df):
             )
         )
 
-        # Add a scatter trace for the self prices
+        # Add a scatter for every status. Active, out of stock, Not add in amazon
+        groups = df.groupby(f'{country} status')
+        colors = ['aqua', 'white', 'darkgrey', 'darkgrey', 'darkgrey']
+        len_groups = len(groups)
+        for color, (name, group) in zip(colors[:len_groups], groups):
+            fig.add_trace(
+                go.Scatter(
+                    x=group['prod'],
+                    y=group[self_price_col],
+                    name=name,
+                    mode='markers',
+                    marker=dict(
+                        color=color
+                    ),
+                    text=name + ': €' + group[self_price_col].astype(str),
+                    customdata=group[url_col],
+                    hovertemplate=generate_hover_template('%{text}', '%{customdata}')
+                )
+            )
+
+        # Add a scatter for status that is not in any group
+        not_in_group = df[~df[f'{country} status'].isin(groups.groups.keys())]
         fig.add_trace(
             go.Scatter(
-                x=df['prod'],
-                y=df[self_price_col],
-                name=f'{country} self price',
+                x=not_in_group['prod'],
+                y=not_in_group[best_price_col],
+                name='Not recorded',
                 mode='markers',
                 marker=dict(
-                    color='white'
+                    color='grey'
                 ),
-                text='Self: €' + df[self_price_col].astype(str),
-                customdata=df[url_col],
+                text=f'Not Recorded' + ': €' + not_in_group[best_price_col].astype(str),
+                customdata=not_in_group[url_col],
                 hovertemplate=generate_hover_template('%{text}', '%{customdata}')
             )
         )
@@ -231,14 +249,17 @@ def show_statistics_pie(df):
     df = excel.clean_df_for_statistics(df)
     
     # Select only the relevant columns
-    df = df[['prod', 'Spain self price', 'Spain best price', 'Italy self price', 'Italy best price', 'France self price', 'France best price', 'Germany self price', 'Germany best price', 'Netherlands self price', 'Netherlands best price']]
+    df = df[['prod', 'Spain self price', 'Spain best price', 'Spain second price', 'Italy self price', 'Italy best price', 'Italy second price', 'France self price', 'France best price', 'France second price', 'Germany self price', 'Germany best price', 'Germany second price', 'Netherlands self price', 'Netherlands best price', 'Netherlands second price']]
+
+    # Get dataframe where Spain best price is the same as Spain self price
+    df = df[df['Spain best price'] == df['Spain self price']]
 
     # Create a new column to calculate the differences between best price and self price for each marketplace
-    df['Spain diff'] = df['Spain best price'] - df['Spain self price']
-    df['Italy diff'] = df['Italy best price'] - df['Italy self price']
-    df['France diff'] = df['France best price'] - df['France self price']
-    df['Germany diff'] = df['Germany best price'] - df['Germany self price']
-    df['Netherlands diff'] = df['Netherlands best price'] - df['Netherlands self price']
+    df['Spain diff'] = df['Spain second price'] - df['Spain self price']
+    df['Italy diff'] = df['Italy second price'] - df['Italy self price']
+    df['France diff'] = df['France second price'] - df['France self price']
+    df['Germany diff'] = df['Germany second price'] - df['Germany self price']
+    df['Netherlands diff'] = df['Netherlands second price'] - df['Netherlands self price']
 
     # Differences greater than 200 set to 0
     df['Spain diff'] = df['Spain diff'].apply(lambda x: 0 if x > 200 else x)
@@ -269,14 +290,17 @@ def show_statistics_pie_per_sku(df):
     df = excel.clean_df_for_statistics(df)
     
     # Select only the relevant columns
-    df = df[['prod', 'Spain self price', 'Spain best price', 'Italy self price', 'Italy best price', 'France self price', 'France best price', 'Germany self price', 'Germany best price', 'Netherlands self price', 'Netherlands best price']]
+    df = df[['prod', 'Spain self price', 'Spain best price', 'Spain second price', 'Italy self price', 'Italy best price', 'Italy second price', 'France self price', 'France best price', 'France second price', 'Germany self price', 'Germany best price', 'Germany second price', 'Netherlands self price', 'Netherlands best price', 'Netherlands second price']]
+
+    # Get dataframe where Spain best price is the same as Spain self price
+    df = df[df['Spain best price'] == df['Spain self price']]
 
     # Create a new column to calculate the differences between best price and self price for each marketplace
-    df['Spain diff'] = df['Spain best price'] - df['Spain self price']
-    df['Italy diff'] = df['Italy best price'] - df['Italy self price']
-    df['France diff'] = df['France best price'] - df['France self price']
-    df['Germany diff'] = df['Germany best price'] - df['Germany self price']
-    df['Netherlands diff'] = df['Netherlands best price'] - df['Netherlands self price']
+    df['Spain diff'] = df['Spain second price'] - df['Spain self price']
+    df['Italy diff'] = df['Italy second price'] - df['Italy self price']
+    df['France diff'] = df['France second price'] - df['France self price']
+    df['Germany diff'] = df['Germany second price'] - df['Germany self price']
+    df['Netherlands diff'] = df['Netherlands second price'] - df['Netherlands self price']
 
     # Differences greater than 200 set to 0
     df['Spain diff'] = df['Spain diff'].apply(lambda x: 0 if x > 200 else x)
@@ -292,11 +316,11 @@ def show_statistics_pie_per_sku(df):
 
     for col, marketplace in zip((col1, col2, col3, col4, col5), ['Spain', 'Italy', 'France', 'Germany', 'Netherlands']):
         # Create a new dataframe to hold the sum of the differences for each marketplace
-        diff_df = df[['prod', f'{marketplace} diff']]
+        diff_df: pd.DataFrame = df[['prod', f'{marketplace} diff']]
         diff_df.set_index('prod', inplace=True)
 
         # Clip the differences to 0
-        diff_df[f'{marketplace} diff'] = diff_df[f'{marketplace} diff'].clip(lower=0)
+        diff_df.loc[f'{marketplace} diff'] = diff_df[f'{marketplace} diff'].clip(lower=0)
 
         # Filter out products with no difference
         diff_df = diff_df[diff_df[f'{marketplace} diff'] > 0]

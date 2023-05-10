@@ -21,7 +21,7 @@ def get_skus(excel_path) -> list[str]:
     # Get sku wich is iPXS-SL-64-B -R in string: [iPXS-SL-64-B -R] iPhone XS (Silver, 64 GB, B, REBU)
     return [product.split("]")[0].split("[")[-1] for product in df["prod"].tolist() if "[" in product and "]" in product]
 
-def get_skus_df(excel_path) -> pd.DataFrame:
+def get_skus_df(excel_path, compute_all) -> pd.DataFrame:
     """
     Get the list of products from the excel file. 
     """
@@ -30,7 +30,7 @@ def get_skus_df(excel_path) -> pd.DataFrame:
     # Get sku wich is iPXS-SL-64-B -R in string: [iPXS-SL-64-B -R] iPhone XS (Silver, 64 GB, B, REBU)
     ret_df = df[df["prod"].str.contains(r"\[.*\]")].copy()
     ret_df["sku"] = ret_df["prod"].str.split("]").str[0].str.split("[").str[-1]
-    ret_df["compute price"] = True
+    ret_df["compute price"] = compute_all
 
     # Remove sku from prod
     ret_df["prod"] = ret_df["prod"].str.split("]").str[-1].str.strip()

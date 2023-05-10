@@ -12,6 +12,8 @@ services:
     user: vscode
     volumes:
       - ..:/workspaces/CicloZero:cached
+      - ${HOME}/.ssh:/home/vscode/.ssh:cached
+      - ${HOME}/.cloudflared:/home/vscode/.cloudflared:cached
     cap_add:
       - SYS_ADMIN
     shm_size: '2gb'
