@@ -44,7 +44,13 @@ ComparePrices
     Go to "Manage All Inventory" submenu
     
     Search for SKU ${sku}
-    Click at marketplaces button for sku ${sku}
+    TRY
+        Click at marketplaces button for sku ${sku}
+    EXCEPT
+        Add Label By Sku  ${SKU_EXCEL_PATH}    ${sku}  Spain  Not Add In Amazon  Not Add In Amazon  Not Add In Amazon  Not Add In Amazon
+        Create File    path=${RETURN_FILE}    content=SKU ${sku} not in Amazon inventory
+        Fail  Skipping: SKU ${sku} Not in Amazon inventory
+    END
     
     @{marketplaces}  In which marketplaces is it being sold?
     &{attribtue}  Get Attributes From Sku    sku=${sku}
@@ -54,7 +60,7 @@ ComparePrices
     
     Comment  Get markets for sku
     &{markets_prices}  Create Dictionary
-    Create Sheet For Sku  ${STOCK_EXCEL_PATH}  ${SKU}  ${SKU_EXCEL_PATH}  
+    Create Sheet For Sku  ${SKU}  ${SKU_EXCEL_PATH}  
 
     FOR  ${market}  IN   @{marketplaces}
         ${status}  Get status for ${market}
@@ -66,7 +72,7 @@ ComparePrices
         TRY
             See Renewed at the right above sell on Amazon
         EXCEPT
-            Add Price Not Found By Sku  ${SKU_EXCEL_PATH}    ${sku}  ${market}  ${status}  ${self_price}  ${url}
+            Add Label By Sku  ${SKU_EXCEL_PATH}    ${sku}  ${market}  ${status}  Not Found  ${self_price}  ${url}
             Close Page
             CONTINUE
         END

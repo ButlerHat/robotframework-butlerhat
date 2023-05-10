@@ -32,5 +32,7 @@ RUN conda env create -f conda_web.yaml
 WORKDIR /workspaces
 RUN rm -rf /tmp/pip-tmp
 
+ENV TZ='/usr/share/zoneinfo/Europe/Madrid'
+
 # Run cron service after container is started. sudo service cron start
 # RUN sudo service cron start

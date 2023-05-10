@@ -7,12 +7,13 @@ def sidebar_header():
     Show the sidebar header
     """
     with st.sidebar:
-        st.image(st.secrets.paths.logo)
-        main_color = st.secrets.theme.primaryColor
-        st.markdown(f'# Cicl<span style="color:{main_color}">AI</span> Price', unsafe_allow_html=True)
+        # Logo
+        st.image(st.secrets.paths.ciclozero_logo)
+        _, col1, col2 = st.columns([1, 2, 1])
+        col1.image(st.secrets.paths.logo)
 
         # Create a dropdown menu
-        with st.expander('Navigation', expanded=True):
+        with st.expander('CiclAI', expanded=True):
             
             options = {"Stock": "box-seam", "Price": "cash-coin"}
             default_index = 0

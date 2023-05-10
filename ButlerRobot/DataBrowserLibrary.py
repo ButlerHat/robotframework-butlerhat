@@ -5,17 +5,16 @@ import random
 from io import BytesIO
 from enum import Enum, auto
 from .src.utils.ocr import get_all_text
-from collections import namedtuple
 from typing import Optional, Union
 from PIL import Image
 from Browser import Browser, KeyboardModifier, MouseButton
-from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails
+from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails, BoundingBox
 from Browser.utils.data_types import ScreenshotReturnType
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
-from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus, Task
+from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus
 
 
 class TextType(Enum):
@@ -57,8 +56,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # Get arguments to pass to the DataWrapperLibrary
         output_path = kwargs.pop('output_path', None)
         record = kwargs.pop('record', True)
+        console = kwargs.pop('console', True)
 
-        super().__init__(Browser(*args, **kwargs), output_path=output_path, record=record)
+        super().__init__(Browser(*args, **kwargs), output_path=output_path, record=record, console=console)
         self._library: Browser = self._library
 
         # To filter recorded actions
@@ -148,6 +148,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # a scroll, it will be added to the stack.
         try:
             web_element = self._library.get_element(selector)
+            assert web_element is not None, f'Selector {selector} not found (Web element is None)'
             bbox_ = self._library.get_boundingbox(web_element)
         except Exception as e:
             BuiltIn().log(f'Error getting selector pointer and bbox: {e}', console=self.console)
@@ -434,7 +435,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         if selector:
             bbox, _ = self._get_bbox_and_pointer(selector)
             if bbox:
-                img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
+                img = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
 
         if not img:
             img = self._library.take_screenshot(return_as=ScreenshotReturnType.base64)
@@ -496,7 +497,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         text = self._library.getTextFromBboxWithJs(bbox.x, bbox.y, bottom_right[0], bottom_right[1])
         if not text and with_ocr:
             BuiltIn().log(f'Getting text with JavaScript failed. Trying with OCR', console=True)
-            img = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
+            img = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
             text = get_all_text(self.ocr_url, img)
         if not text:
             BuiltIn().log(f'Error at Get Text From BBox. No text found for locator {selector_bbox}', 'WARN', console=True)

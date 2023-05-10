@@ -12,8 +12,6 @@ def ciclai_stock():
     main_color = st.secrets.theme.primaryColor
     st.markdown(f'# <span style="color:{main_color}">CiclAI</span> Stock', unsafe_allow_html=True)
 
-    default_command = "robot -d results CiclAiStock.robot"
-
     # Set cron
     st.markdown("## Program time")
     with st.expander("Schedule the job", expanded=True):
@@ -26,19 +24,40 @@ def ciclai_stock():
         
         # List jobs
         col2.markdown(" ### Jobs list")
-
-        col2.code("\n".join(cron.get_cron_jobs()))
+        c = col2.empty()
+        c.code("\n".join(cron.get_cron_jobs()))
 
         # Run button
+        stock_path = st.secrets.paths.stock_excel
+        excel_name = 'CiclAiStock_$(date +"%H-%M_%d-%m-%Y").xlsx'
+        
+        args = [
+            f'RESULT_EXCEL_PATH:{os.path.join(stock_path, excel_name)}'
+        ]
+        # Place script in robot folder / jobs
+        robot_command = robot_handler.get_robot_command("stock", args, "CiclAiStock.robot")
+        script_robot = robot_command + f' > {os.path.join(st.secrets.paths.robot, "jobs", "cron.log")} 2>&1'
+        cron_script_path = os.path.join(st.secrets.paths.robot, "jobs", "stock.sh")
+        with open(cron_script_path, 'w') as f:
+            f.write("#!/bin/bash\n")
+            f.write(f"export DEVELOPMENT_SERVER={os.environ.get('DEVELOPMENT_SERVER', '')}\n")
+            f.write(f"export ROBOT_CICLOZERO_PASS='{os.environ.get('ROBOT_CICLOZERO_PASS', '')}'\n")
+            f.write(f"export PYTHONPATH={os.environ.get('PYTHONPATH', '')}\n")
+            f.write(f"export PATH={os.environ.get('PATH', '')}\n")
+            f.write(script_robot)
+        os.chmod(cron_script_path, 0o777)
+
         if st.button("Schedule", type="secondary"):
-            success = cron.insert_cron_job(cron_str[0], default_command)
+            success = cron.insert_cron_job(cron_str[0], cron_script_path)
             if success:
+                c.code("\n".join(cron.get_cron_jobs()))
                 col1.success("Job scheduled successfully")
             else:
                 col1.warning("Job already scheduled")
 
         if st.button("Delete", type="primary"):
-            if cron.delete_cron_job(cron_str[0], default_command):
+            if cron.delete_cron_job(cron_str[0], cron_script_path):
+                c.code("\n".join(cron.get_cron_jobs()))
                 col1.success("Job deleted successfully")
             else:
                 col1.warning("Job not found")
@@ -55,14 +74,12 @@ def ciclai_stock():
     with col1:
         stock_path = st.secrets.paths.stock_excel
         with st.form("Run Robot with args"):
-            url = st.text_input("URL_AMAZON", r"https://sellercentral.amazon.es/ap/signin?openid.pape.max_auth_age=0&openid.return_to=https%3A%2F%2Fsellercentral.amazon.es%2Fhome&openid.identity=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&openid.assoc_handle=sc_es_amazon_v2&openid.mode=checkid_setup&language=es_ES&openid.claimed_id=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0%2Fidentifier_select&pageId=sc_es_amazon_v2&openid.ns=http%3A%2F%2Fspecs.openid.net%2Fauth%2F2.0&ssoResponse=eyJ6aXAiOiJERUYiLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiQTI1NktXIn0.u8j_3kfAPRO9oea7TATYwCAdOKehZfRhKktBjgJlntMm6nulCn1qEg.B2O2NQ1GNLUmz9NH.cjghNVWhLvzDMxogLdKHIvb87caY5OMLYZheHT6HHz3k088JtfZnEGHu8fk8e_IFDIpVNxqqHzR8JcyQjX1b5SwxquNbOpmt5cnMPZ5pgqpf0pbcHi8-TrhHtZ2XJjSDaSwqYkPTP6oEJKgc6fDOGcJsXOPPXTJc6ZT71ZHEX1R8j94ipHBM6qer4vruZRBYMAdZVaFP.K5bI5NZ7lJG0ObtQQymgtA")
             # Add date to excel name
             excel_name = st.text_input("EXEL_NAME", f"CiclAiStock_{datetime.datetime.now().strftime('%H-%M_%d-%m-%Y')}.xlsx")
             if st.form_submit_button("Run", type="primary"):
                 
                 args = [
-                    f"RESULT_EXCEL_PATH:{os.path.join(stock_path, excel_name)}",
-                    f"URL_AMAZON:{repr(url)}"
+                    f"RESULT_EXCEL_PATH:{os.path.join(stock_path, excel_name)}"
                 ]
                 asyncio.run(robot_handler.run_robot('stock', args, "CiclAiStock.robot"))
 

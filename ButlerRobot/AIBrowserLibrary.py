@@ -10,7 +10,7 @@ from enum import Enum, auto
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
 from Browser import Browser
-from Browser.utils.data_types import ScreenshotReturnType
+from Browser.utils.data_types import ScreenshotReturnType, BoundingBox
 from .DataBrowserLibrary import DataBrowserLibrary
 from .src.data_types import PageAction, Step, Task, BBox
 from .src.data_to_ai.data_example_builder import AIExampleBuilder
@@ -244,7 +244,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             pointer_xy = (int(bbox.x + bbox.width/2), int(bbox.y + bbox.height/2))
             fixed_bbox: BBox | None = self._get_element_bbox_from_pointer(*pointer_xy)
             bbox: BBox = fixed_bbox if fixed_bbox else bbox
-            elemnt_img_str = self._library.take_screenshot(crop=bbox.to_dict(), return_as=ScreenshotReturnType.base64)
+            elemnt_img_str = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
             # Save the image with pillow
             if self.save_screenshots:
                 img = Image.open(io.BytesIO(base64.b64decode(elemnt_img_str)))

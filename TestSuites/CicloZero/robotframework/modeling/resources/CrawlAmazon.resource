@@ -235,7 +235,7 @@ Open filter at the right
     Click  //*[@id='aod-filter-string']
     # Check if the filter is open
     ${STATUS}  ${MSG}  Run keyword and ignore error  Wait For Elements State   //*[@id="new"]/div/label/input  visible  1
-    IF  '${STATUS}' == 'FAIL'  Click  //*[@id='aod-filter-string']
+    IF  '${STATUS}' == 'FAIL'  Run Keyword And Ignore Error  Click  //*[@id='aod-filter-string']
 
 Close filter if not open
     ${STATUS}  ${MSG}  Run keyword and ignore error  Wait For Elements State   //*[@id="new"]/div/label/input  visible  1

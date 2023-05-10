@@ -1,7 +1,7 @@
 *** Settings ***
 Library  OTP
 Library    Collections
-Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  console=${False}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
 Library   ButlerRobot.AILanguageLibrary
 Library   ../keywords/utils.py
 Library   ../keywords/count_excel.py

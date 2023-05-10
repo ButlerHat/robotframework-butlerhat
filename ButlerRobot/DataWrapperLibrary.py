@@ -521,26 +521,26 @@ class DataWrapperLibrary:
             if step.name.lower() == 'sleep':
                 if self._is_browser_open():
                     self.last_observation = self._get_observation()
-            BuiltIn().log(f"Not recording {step.name}. Not valid. Skipping", console=self.console, level="DEBUG")
+            BuiltIn().log(f"Not recording {step.name}. Not valid. Skipping", console=self.console)
             return
         
         if isinstance(step, PageAction) and attrs["status"] in ["FAIL", "NOT SET", "NOT RUN"]:
-            BuiltIn().log(f"Not recording {step.name}. Keyword with status'{attrs['status']}'. Skipping", console=self.console, level="DEBUG")
+            BuiltIn().log(f"Not recording {step.name}. Keyword with status'{attrs['status']}'. Skipping", console=self.console)
             return
         
         if is_exclude_task(step, attrs['tags']):
-            BuiltIn().log(f"Not recording {step.name}. Task with exclude tags. Skipping", console=self.console, level="DEBUG")
+            BuiltIn().log(f"Not recording {step.name}. Task with exclude tags. Skipping", console=self.console)
             return
 
         # Shoud be a task in the stack
         if self.exec_stack.is_empty():
-            BuiltIn().log(f"Not recording {step.name}. Steps stack is empty. Interpreter case only.", console=self.console, level="WARN")
+            BuiltIn().log(f"Not recording {step.name}. Steps stack is empty. Interpreter case only.", console=self.console)
             return
 
         # Remove task if is a Task and not have steps
         if isinstance(step, Task) and len(step.steps) == 0:
             BuiltIn().log(
-                f"Not recording {step.name}. Is a Task and not have steps", "WARN", console=self.console)
+                f"Not recording {step.name}. Is a Task and not have steps", console=self.console)
             return
 
         # Update if browser is not open

@@ -25,6 +25,8 @@ ${RESULT_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.full.result.xlsx
 *** Test Cases ***
 CiclAI Stock
     [Documentation]  Creacion de excel para hacer el control de stock. Se usan las páginas de Odoo y Amazon.
+    ${pass}  Evaluate  os.environ.get('ROBOT_CICLOZERO_PASS')  modules=os
+    Log to console  ${pass}
     # ================== Odoo ==================
     ${return_excel}  Get Stocks Odoo
     Create Excel    ${return_excel}    ${RESULT_EXCEL_PATH_ODOO}

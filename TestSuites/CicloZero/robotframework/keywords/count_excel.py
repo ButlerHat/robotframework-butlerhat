@@ -2,6 +2,7 @@
 Load and create a pandas dataframe from an excel file
 """
 import re
+import datetime
 import pandas as pd
 import openpyxl
 
@@ -200,8 +201,8 @@ def append_dict_to_main_excel(order_count_dict: dict, excel_path:str, output_exc
     return excel_df
 
 
-def create_sheet_for_sku(excel_path: str, sku: str, output_excel_path: str):
-    wb = openpyxl.load_workbook(excel_path)
+def create_sheet_for_sku(sku: str, output_excel_path: str):
+    wb = openpyxl.Workbook()
 
     # Check if sheet exists
     if sku in wb.sheetnames:
@@ -210,8 +211,8 @@ def create_sheet_for_sku(excel_path: str, sku: str, output_excel_path: str):
     else:
         # Create sheet
         wb.create_sheet(sku)
-
-    # Add columns: marketplace, status, self price, best price, best seller, second price, second seller, third price, third seller, url
+    
+    # Add columns: marketplace, status, self price, best price, best seller, second price, second seller, third price, third seller, url, timestamp
     sheet = wb[sku]
     sheet["A1"] = "marketplace"
     sheet["B1"] = "status"
@@ -223,6 +224,7 @@ def create_sheet_for_sku(excel_path: str, sku: str, output_excel_path: str):
     sheet["H1"] = "third price"
     sheet["I1"] = "third seller"
     sheet["J1"] = "url"
+    sheet["K1"] = "timestamp"
 
     # Save
     wb.save(output_excel_path)
@@ -242,18 +244,21 @@ def add_prices_by_sku_and_market(excel_path: str, sku: str, marketplace: str, st
     sheet[f"A{row}"] = marketplace
     sheet[f"B{row}"] = status
     sheet[f"C{row}"] = self_price
-    # Best 3 prices
-    for i, (seller, price) in enumerate(prices.items()):
+    # Best 3 prices. Sort dict by value
+    sorted_prices = {k: v for k, v in sorted(prices.items(), key=lambda item: item[1])}
+
+    for i, (seller, price) in enumerate(sorted_prices):
         sheet[f"{chr(ord('D') + (i * 2))}{row}"] = price
         sheet[f"{chr(ord('E') + (i * 2))}{row}"] = seller
         if i == 2:
             break
     sheet[f"J{row}"] = url
+    sheet[f"K{row}"] = datetime.datetime.now().strftime("%H:%M %d/%m/%Y")
 
     # Save
     wb.save(excel_path)
 
-def add_price_not_found_by_sku(excel_path: str, sku: str, marketplace: str, status: str, self_price:str, url: str):
+def add_label_by_sku(excel_path: str, sku: str, marketplace: str, status: str, label: str, self_price:str, url: str):
     wb = openpyxl.load_workbook(excel_path)
     sheet = wb[sku]
 
@@ -269,8 +274,8 @@ def add_price_not_found_by_sku(excel_path: str, sku: str, marketplace: str, stat
     sheet[f"C{row}"] = self_price
     # Add 'not found' to all prices
     for i in range(3):
-        sheet[f"{chr(ord('D') + (i * 2))}{row}"] = "not found"
-        sheet[f"{chr(ord('E') + (i * 2))}{row}"] = "not found"
+        sheet[f"{chr(ord('D') + (i * 2))}{row}"] = label
+        sheet[f"{chr(ord('E') + (i * 2))}{row}"] = label
     sheet[f"J{row}"] = url
 
     # Save

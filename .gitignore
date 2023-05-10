@@ -164,3 +164,4 @@ robotframework-butlerhat/TestSuites/TestSuites/.pabotsuitenames
 wandb/
 artifacts/
 TestSuites/CicloZero/conda_pass.yml
+TestSuites/CicloZero/jobs/stock.sh
