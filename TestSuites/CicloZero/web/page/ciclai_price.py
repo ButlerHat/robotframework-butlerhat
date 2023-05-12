@@ -37,6 +37,8 @@ def ciclai_price():
     if uploaded_file is not None:
         compute_all = st.checkbox("Compute all SKUs", value=True)
         skus_df = excel.get_skus_df(uploaded_file, compute_all)
+        # Sort by prod
+        skus_df = skus_df.sort_values(by=['prod'])
         edited_df = st.experimental_data_editor(skus_df, use_container_width=True)
     else:
         edited_df = None
@@ -71,12 +73,12 @@ def ciclai_price():
         df_prices = show_prices(edited_df)
 
     # Show statistics
-    st.markdown("# Show statistics")
+    st.markdown("# Amazon Sellers vs Ciclozero")
     if df_prices is not None:
         st.markdown("## Prices per SKU")
         show_statistics_plot(df_prices)
 
-        st.markdown("## Rise the price")
+        st.markdown("# Rise the price")
         st.info("The following statistics are calculated only for products where the best price is greater than the self price")
         show_statistics_pie(df_prices)
         show_statistics_pie_per_sku(df_prices)
@@ -124,6 +126,8 @@ def show_prices(stock_df: pd.DataFrame):
     
 
 def show_statistics_plot(df):
+    span_all = st.checkbox("Show all markets", value=True)
+
     df = excel.clean_df_for_statistics(df)
 
     # Define a list of countries
@@ -156,7 +160,8 @@ def show_statistics_plot(df):
                 name=f'{country} third price',
                 mode='markers',
                 marker=dict(
-                    color='green'
+                    color='green',
+                    symbol='diamond'
                 ),
                 text=df[third_seller_col] + ': €' + df[third_price_col].astype(str),
                 customdata=df[url_col],
@@ -172,7 +177,8 @@ def show_statistics_plot(df):
                 name=f'{country} second price',
                 mode='markers',
                 marker=dict(
-                    color='yellow'
+                    color='yellow',
+                    symbol='diamond'
                 ),
                 text=df[second_seller_col] + ': €' + df[second_price_col].astype(str),
                 customdata=df[url_col],
@@ -188,7 +194,8 @@ def show_statistics_plot(df):
                 name=f'{country} best price',
                 mode='markers',
                 marker=dict(
-                    color='red'
+                    color='red',
+                    symbol='diamond'
                 ),
                 text=df[best_seller_col] + ': €' + df[best_price_col].astype(str),
                 customdata=df[url_col],
@@ -196,7 +203,7 @@ def show_statistics_plot(df):
             )
         )
 
-        # Add a scatter for every status. Active, out of stock, Not add in amazon
+        # Add a scatter for every status. Active, out of stock, Not add in amazon. Symbol: square
         groups = df.groupby(f'{country} status')
         colors = ['aqua', 'white', 'darkgrey', 'darkgrey', 'darkgrey']
         len_groups = len(groups)
@@ -208,7 +215,8 @@ def show_statistics_plot(df):
                     name=name,
                     mode='markers',
                     marker=dict(
-                        color=color
+                        color=color,
+                        symbol='square'
                     ),
                     text=name + ': €' + group[self_price_col].astype(str),
                     customdata=group[url_col],
@@ -242,11 +250,14 @@ def show_statistics_plot(df):
             hovermode='closest'
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        with st.expander(f'Prices in {country}', expanded=span_all):
+            st.plotly_chart(fig, use_container_width=True)
+        
 
 
 def show_statistics_pie(df):
     df = excel.clean_df_for_statistics(df)
+    # all_df = df.copy()
     
     # Select only the relevant columns
     df = df[['prod', 'Spain self price', 'Spain best price', 'Spain second price', 'Italy self price', 'Italy best price', 'Italy second price', 'France self price', 'France best price', 'France second price', 'Germany self price', 'Germany best price', 'Germany second price', 'Netherlands self price', 'Netherlands best price', 'Netherlands second price']]
@@ -267,6 +278,15 @@ def show_statistics_pie(df):
     df['France diff'] = df['France diff'].apply(lambda x: 0 if x > 200 else x)
     df['Germany diff'] = df['Germany diff'].apply(lambda x: 0 if x > 200 else x)
     df['Netherlands diff'] = df['Netherlands diff'].apply(lambda x: 0 if x > 200 else x)
+
+    # Get the sum of all differences
+    diff_sum = df['Spain diff'].clip(lower=0).sum() + df['Italy diff'].clip(lower=0).sum() + df['France diff'].clip(lower=0).sum() + df['Germany diff'].clip(lower=0).sum() + df['Netherlands diff'].clip(lower=0).sum()
+    st.markdown(f'## Rentability loss: <span style="color:red">{diff_sum:.2f}</span> €', unsafe_allow_html=True)
+    # Get the number of products
+    st.markdown(f'### Number of models: <span style="color:grey">{len(df)}</span>', unsafe_allow_html=True)
+    # Sum the count of products
+    # st.markdown(f'### Number of products: <span style="color:grey">{df["Total"].sum()}</span>', unsafe_allow_html=True)
+
 
     # Create a new dataframe to hold the sum of the differences for each marketplace
     diff_df = pd.DataFrame(columns=['marketplace', 'diff_sum'])

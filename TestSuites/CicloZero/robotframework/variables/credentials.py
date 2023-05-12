@@ -4,8 +4,8 @@ from robot.libraries.BuiltIn import BuiltIn
 
 
 credentials = {
-    'odoo_user': 'gAAAAABkQQ-cL1kJByvvnZcFSAnNcl8zTI5dP3pZu-3-1kwTT4hjpRVcvuMXMtAoZ_bqPtkqAtNmo6ihzer4i-KTt4LS4nXyrpk0L9TKMduJca1gpDkcLvE=',
-    'odoo_pass': 'gAAAAABkQRC2VBOMGiYmqWoA4iYQaKfJuTTdlggEoYyyvOWKX-x0i3w81or8PKY4e-XnFVPHUftmbK34HgOsCmM1zX_vHF5jsQ==',
+    'odoo_user': 'gAAAAABkXfVcux9FphTue5BP3jvf4X73f5JId5EqVZadOcZJOQinzxZn1g0jvjw7KtLxmq2QmLXWptC-I_IIcQ3i9PNZPXex_c4jE5AKAZ2LVmn1q7117u4=',
+    'odoo_pass': 'gAAAAABkXfV7dPgwud0eq2NF9E7NuuMMYpUhImWJRACyd8epmomNeneKsmSWTvIfQPkl9YVbDHKt-yCglLyILVoEsWPEMQDw4SIvRKVLt1eGn7Vra6vkNoU=',
     'amazon_user_flendu': 'gAAAAABkQRRpB-F3IN9FAcrTxlAAEuMcnQiF0JRx8qZBHXyxw-pIUDl26BrMehMCKtiqOs12utj7O6hvQpqiUJiiVWEPwihFzA==',
     'amazon_pass_flendu': 'gAAAAABkQQ-cS29l1B7fmtReo2nKvWk5ExYYBgIPEX43bhOJIDSrmHJQQJH-15L4IY97GyrA3k0anX2TDaTrmxfFGk0Uln_DMQ==',
     'amazon_user': 'gAAAAABkSP8xE5uDjEs8YzAWgeSxsRtr09NmcL-PpDaw-afb97EpzscWWIIZzUQe2sNmZjhHF7DIfggSz2vk8xBqei-9D8e-PDIaX33MiAXNWA61LkAo2UY=',

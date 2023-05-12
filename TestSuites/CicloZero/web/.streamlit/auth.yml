@@ -1,0 +1,21 @@
+cookie:
+  expiry_days: 7
+  key: ciclozero_random_key
+  name: some_cookie_name
+credentials:
+  usernames:
+    ciclozero:
+      email: ciclozero@ciclozero.com
+      name: CicloZero
+      password: $2b$12$Apb3WiWwTRY1Fy45QLsxZulBY/5ZRXKji5jGvLKfETVcJMf43eSlO
+    david:
+      email: davidestu7@gmail.com
+      name: David Correas
+      password: $2b$12$R3ahsYltBqN5KURHI/d8WepvxJKOZfSlDF3ysXG2muIdBM3z135Jq
+    david_prueba:
+      email: davidestu7@gmail.com
+      name: David Correas
+      password: $2b$12$E.I0tmy8m4fo4kO6365ptOsTX6K8AZ3PbnmEuDjKb3MzFZiwNf7uu
+preauthorized:
+  emails:
+  - davidestu7@gmail.com

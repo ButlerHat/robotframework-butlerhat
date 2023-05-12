@@ -15,6 +15,12 @@ def sidebar_header():
         _, col1, col2 = st.columns([1, 3, 1])
         col1.image(st.secrets.paths.logo)
 
+
+def sidebar_menu():
+    """
+    Show the sidebar menu
+    """
+    with st.sidebar:
         # Create a dropdown menu
         with st.expander('CiclAI', expanded=True):
             
