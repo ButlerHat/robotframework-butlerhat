@@ -187,10 +187,17 @@ Get Element Bounding Box of marketplaces
 Go to page of the ${marketplace} row
     [Documentation]  This keyword cannot be recorded because when click does not work
     Get Bounding box of the link in the ${marketplace} row
-    ${href}  Get Attribute    //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${marketplace}')][2]/div[4]//a    href
+    ${href}  NoRec Get Attribute    //*[@id="losg-modal-iframe"] >>> //*[@id='janusTableContent']/div[contains(., '${marketplace}')][2]/div[4]//a    href
     New Page  ${href}
 
     RETURN  ${href}
+
+NoRec Get Attribute
+    [Arguments]  ${selector}  ${attribute}
+    [Tags]  no_record
+    ${attr}  Get Attribute  ${selector}  ${attribute}
+    RETURN  ${attr}
+
 
 Get Bounding box of the link in the ${marketplace} row
     [Documentation]  This keyword is only for teaching purposes. When click does not work

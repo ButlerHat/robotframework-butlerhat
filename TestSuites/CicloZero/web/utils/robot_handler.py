@@ -37,15 +37,22 @@ async def run_robot(id: str, vars: list, robot: str, msg=None):
             f2.write(stdout.decode())
             f2.write(stderr.decode())
 
-    if ret_val != 0:
-        # Check if there is a msg file
-        msg_path = os.path.join(result_path, "return_msg.txt")
-        if os.path.exists(msg_path):
-            with open(msg_path, 'r') as f:
-                msg_ = f.read()
+    # Check if there is a msg file
+    msg_path = os.path.join(result_path, "return_msg.txt")
+    if os.path.exists(msg_path):
+        with open(msg_path, 'r') as f:
+            msg_ = f.read()
+            if 'warn' in msg_.lower():
                 st.warning(msg_)
-                return
-        
+            elif 'success' in msg_.lower():
+                st.success(msg_)
+            else:
+                st.error(msg_)
+        # Delete the file
+        os.remove(msg_path)
+        return
+
+    if ret_val != 0:
         msg_ = f"Robot failed with return code {ret_val}" if not msg else f'Fail {ret_val}: {id}'
         st.error(msg_)
         

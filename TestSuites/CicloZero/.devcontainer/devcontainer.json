@@ -49,7 +49,8 @@
 				"ms-python.vscode-pylance",
 				"ms-python.pylint",
 				"github.copilot",
-				"robocorp.robotframework-lsp"
+				"robocorp.robotframework-lsp",
+				"ms-vscode.live-server"
 			]
 		}
 	},

@@ -1,5 +1,5 @@
 *** Settings ***
-Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  console=${False}  record=${False}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
+Library   ButlerRobot.AIBrowserLibrary  fix_bbox=${TRUE}  console=${False}  record=${True}  output_path=${OUTPUT_DIR}/crawl_amazon_data  WITH NAME  Browser
 Library   OTP
 Library   Collections
 Library   ./robotframework/keywords/count_excel.py
@@ -16,7 +16,7 @@ ${ROBOT_BROWSER_WAIT}  1
 
 ${RETURN_FILE}  ${OUTPUT_DIR}${/}return_msg.txt
 
-${SKU}  iP13-RD-128-B -R
+${SKU}  iP13-MD-128-B+ -R
 ${STOCK_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.quant.full.result.xlsx
 ${SKU_EXCEL_PATH}  ${OUTPUT_DIR}${/}downloads${/}stock.${SKU}.xlsx
 
@@ -51,7 +51,7 @@ ComparePrices
         Click at marketplaces button for sku ${sku}
     EXCEPT
         Add Label By Sku  ${SKU_EXCEL_PATH}    ${sku}  Spain  Not Add In Amazon  Not Add In Amazon  Not Add In Amazon  Not Add In Amazon
-        Create File    path=${RETURN_FILE}    content=SKU ${sku} not in Amazon inventory
+        Create File    path=${RETURN_FILE}    content=Warning: SKU ${sku} not in Amazon inventory
         Fail  Skipping: SKU ${sku} Not in Amazon inventory
     END
     
@@ -63,6 +63,8 @@ ComparePrices
     
     Comment  Get markets for sku
     &{markets_prices}  Create Dictionary 
+    Create File    path=${RETURN_FILE}    content=Success: SKU ${sku}.
+
 
     FOR  ${market}  IN   @{marketplaces}
         ${status}  Get status for ${market}
@@ -75,10 +77,19 @@ ComparePrices
             See Renewed at the right above sell on Amazon
         EXCEPT
             Add Label By Sku  ${SKU_EXCEL_PATH}    ${sku}  ${market}  ${status}  Not Found  ${self_price}  ${url}
+            Create File    path=${RETURN_FILE}    content= Warning ${sku} captcha: Check ${market} manually.
             Close Page
             CONTINUE
         END
-        Wait Until Keyword Succeeds    1m    30s    Filter with condition ${filter_val}
+        
+        TRY
+            Wait Until Keyword Succeeds    30s    5s    Filter with condition ${filter_val}
+        EXCEPT
+            Add Label By Sku  ${SKU_EXCEL_PATH}    ${sku}  ${market}  ${status}  Not Found  ${self_price}  ${url}
+            Append To File    path=${RETURN_FILE}    content= Check ${market} manually.
+            Close Page
+            CONTINUE
+        END
         
         &{market_prices}  Get three first lowest price
         Add Prices By Sku And Market    ${SKU_EXCEL_PATH}    ${sku}    ${market}    ${status}    ${self_price}    ${market_prices}    ${url}

@@ -8,8 +8,8 @@ def sidebar_header():
     """
     with st.sidebar:
         # Logo
-        # st.image(st.secrets.paths.ciclozero_logo)
-        st.image(st.secrets.paths.ciclozero_logo_old)
+        st.image(st.secrets.paths.ciclozero_logo)
+        # st.image(st.secrets.paths.ciclozero_logo_old)
         _, col1, col2 = st.columns([1, 1, 1])
         col1.image(st.secrets.paths.powered_by)
         _, col1, col2 = st.columns([1, 3, 1])

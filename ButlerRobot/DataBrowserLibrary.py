@@ -205,7 +205,12 @@ class DataBrowserLibrary(DataWrapperLibrary):
                 # The scroll is done in a scrollable object.
                 # The start observation will be modified inside the keyword.
                 bbox_arg: BBox = BBox(**scroll_dict['parent_bbox_before_scroll'])
-                BuiltIn().run_keyword('Scroll Down At BBox', bbox_arg)
+                fix_selector = self.fix_bbox
+                self.fix_bbox = False
+                try:
+                    BuiltIn().run_keyword('Scroll Down At BBox', bbox_arg)
+                finally:
+                    self.fix_bbox = fix_selector  # In try to support keywords like "Run Keyword And Ignore Error"
         else:
             # For efficiency, don't update observation in complete_start_context
             self.no_record_next_observation = True 
