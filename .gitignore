@@ -165,3 +165,4 @@ wandb/
 artifacts/
 TestSuites/CicloZero/conda_pass.yml
 TestSuites/CicloZero/jobs/stock.sh
+return_msg.txt
