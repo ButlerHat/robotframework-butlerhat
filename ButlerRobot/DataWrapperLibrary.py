@@ -146,6 +146,9 @@ class DataWrapperLibrary:
     def _get_dom(self) -> str:
         raise NotImplementedError
     
+    def _pre_run_keyword(self) -> None:
+        pass
+    
     def _wait_for_browser(self) -> None:
         raise NotImplementedError
     
@@ -701,7 +704,11 @@ class DataWrapperLibrary:
         # ============ START CONTEXT ============
             # Not explicit wait because complete page action suppose to wait for the element
             if step.status != SaveStatus.no_record:
+                self._pre_run_keyword()
                 complete_start_context()
+
+        # ============ PRE RUN KEYWORD ============
+        
 
         # ============ RUN KEYWORD ============
         # Keywords with @keyword decorator

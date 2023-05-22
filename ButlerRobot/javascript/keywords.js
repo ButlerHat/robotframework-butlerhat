@@ -95,6 +95,68 @@ async function getElementBboxHighlighted(page) {
     });
   }
 
+  async function printBoundingBox(page, args, logger) {
+    const bbox = args;  // [x1, y1, width, height]
+    logger("bbox: " + bbox)
+    return await page.evaluate((bbox) => {
+      const highlightDiv = document.createElement("div");
+      highlightDiv.style.position = "fixed";
+      // highlightDiv.style.backgroundColor = "rgba(255, 255, 0, 0.5)";
+      // highlightDiv.style.pointerEvents = "none";
+      highlightDiv.style.zIndex = "9999";
+      highlightDiv.id = "highlightDivBH";
+      highlightDiv.className = "myClass";
+
+      const style = document.createElement("style");
+      style.innerHTML = `
+      .myClass {
+        background-color: rgba(255,165, 0, 0.2);
+        border: 2px solid;
+        border-image: linear-gradient(to right, blue, orange) 1;
+        border-image-slice: 1;
+      }
+
+      .gradient-border {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .gradient-border::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: -1;
+        background: linear-gradient(to right, #ff0000, #00ff00);
+      }
+      
+      .gradient-border::after {
+        content: "";
+        position: absolute;
+        top: 2px; /* Adjust as needed */
+        left: 2px; /* Adjust as needed */
+        right: 2px; /* Adjust as needed */
+        bottom: 2px; /* Adjust as needed */
+        z-index: -1;
+        background-color: rgba(255, 255, 255, 0.5);
+      }
+        
+
+      `;
+
+      highlightDiv.style.top = bbox[1] + "px";
+      highlightDiv.style.left = bbox[0] + "px";
+      highlightDiv.style.width = bbox[2] + "px";
+      highlightDiv.style.height = bbox[3] + "px";
+
+      document.head.appendChild(style);
+      document.body.appendChild(highlightDiv);
+      return Promise.resolve();
+    }, bbox);
+  }
+
   async function getTextFromBboxWithJs(args, page, logger) {
     const margin = 3;
     let frame;
@@ -378,5 +440,6 @@ async function getElementBboxHighlighted(page) {
 
   exports.__esModule = true;
   exports.getElementBboxHighlighted = getElementBboxHighlighted;
+  exports.printBoundingBox = printBoundingBox;
   exports.getTextFromBboxWithJs = getTextFromBboxWithJs;
   exports.scrollElementIfNeeded = scrollElementIfNeeded;

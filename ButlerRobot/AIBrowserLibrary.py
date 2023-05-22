@@ -63,8 +63,9 @@ class AIBrowserLibrary(DataBrowserLibrary):
             wait_for_browser=None,
             max_steps=5, 
             with_tasks=False, 
-            fix_bbox=False,
+            fix_bbox=True,
             save_screenshots=False,
+            presentation_mode=False,
             *args, 
             **kwargs):
         # ia_url is nginx because the service mode
@@ -74,6 +75,8 @@ class AIBrowserLibrary(DataBrowserLibrary):
         self.fix_bbox = fix_bbox
         self.save_screenshots = save_screenshots
         self.wait_time = wait_for_browser
+        self.presentation_mode = presentation_mode
+        self.is_bbox_printed = False
 
         # Ocr url
         self.ocr_url = ocr_url if ocr_url else os.environ.get('OCR_URL', 'http://ocr.butlerhat.com/fd/ppocrv3')
@@ -98,6 +101,18 @@ class AIBrowserLibrary(DataBrowserLibrary):
         pass
         BuiltIn().sleep(self._wait)  # Less than recording
 
+    def _pre_run_keyword(self) -> None:
+        """
+        Remove element with id=highlightDivBH
+        """
+        # Remove highlightDivBH. This only happens when is not recording
+        if self.presentation_mode and self.is_bbox_printed:
+            assert not self.record, f"This should not happen when recording. Flag of is_bbox_printed: {self.is_bbox_printed}, Flag of record: {self.record}"
+            BuiltIn().sleep(0.2)
+            self._library.evaluate_javascript(None, "document.getElementById('highlightDivBH').remove();")
+            self.is_bbox_printed = False
+        super()._pre_run_keyword()
+
     def _get_bbox_and_pointer(self, selector: str | BBox) -> tuple[None, None] | tuple[BBox, tuple]:
             """
             This method gets the BBox and pointer of a selector.
@@ -115,15 +130,30 @@ class AIBrowserLibrary(DataBrowserLibrary):
                         pointer_xy = (bbox.x + bbox.width/2, bbox.y + bbox.height/2)
                 
                 if bbox is not None:
-                    return (bbox, (bbox.x + bbox.width/2, bbox.y + bbox.height/2))
+                    r_bbox, r_pointer_xy = (bbox, (bbox.x + bbox.width/2, bbox.y + bbox.height/2))
                 else:
                     raise ValueError(f"Invalid BBox selector: {selector}")
             # When is a xpath (or any) selector
             elif isinstance(selector, str):
                 str_selector: str = str(selector)
-                return super()._retrieve_bbox_and_pointer_from_page(str_selector)
+                r_bbox, r_pointer_xy = super()._retrieve_bbox_and_pointer_from_page(str_selector)
             else:
                 return None, None
+            
+            if not r_bbox:
+                assert r_pointer_xy is None, f'r_pointer_xy must be None if r_bbox is None. r_pointer_xy: {r_pointer_xy}'
+                return r_bbox, r_pointer_xy
+            
+            # Show bbox in the page
+            if self.presentation_mode:
+                self._library.printBoundingBox(r_bbox.x, r_bbox.y, r_bbox.width, r_bbox.height)
+                # If is recording remove the bbox to don't affect observation
+                if self.record:
+                    BuiltIn().sleep(0.2)
+                    self._library.evaluate_javascript(None, "document.getElementById('highlightDivBH').remove();")
+                else:
+                    self.is_bbox_printed = True
+            return r_bbox, r_pointer_xy  # type: ignore
     
     def _retrieve_bbox_and_pointer_from_page(self, selector: str) -> tuple[None, None] | tuple[BBox, tuple[float, float]]:
         # If not is a control of the selector, this function takes too much time
