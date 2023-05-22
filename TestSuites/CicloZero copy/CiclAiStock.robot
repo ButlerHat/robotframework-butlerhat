@@ -1,5 +1,5 @@
 *** Settings ***
-Library    ButlerRobot.AIBrowserLibrary  record=${False}  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}${/}data  WITH NAME  Browser 
+Library    ButlerRobot.AIBrowserLibrary  record=${False}  presentation_mode=${True}  fix_bbox=${TRUE}  output_path=${OUTPUT_DIR}${/}data  WITH NAME  Browser 
 Library    ./robotframework/keywords/count_excel.py
 Library    OTP
 Library    Collections
