@@ -1,3 +1,6 @@
 [submodule "robotframework-dist-butlerhat"]
 	path = robotframework-dist-butlerhat
 	url = git@github.com:ButlerHat/robotframework-dist-butlerhat.git
+[submodule "TestSuites/CicloZero"]
+	path = TestSuites/CicloZero
+	url = git@github.com:ButlerHat/CicloZero.git
