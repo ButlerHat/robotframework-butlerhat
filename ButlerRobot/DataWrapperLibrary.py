@@ -267,9 +267,10 @@ class DataWrapperLibrary:
         return step
 
     def _teardown(self):
-        if not os.getenv('DEVELOPMENT_SERVER'):
-            # Execute in the environment the pip uninstall command. Don't show output in stdout and stderr
-            subprocess.run(f"{sys.executable} -m pip uninstall -y robotframework-butlerhat", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        pass  # TODO: Do it in the future
+        # if not os.getenv('DEVELOPMENT_SERVER'):
+        #     # Execute in the environment the pip uninstall command. Don't show output in stdout and stderr
+        #     subprocess.run(f"{sys.executable} -m pip uninstall -y robotframework-butlerhat", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # ========================= LISTENER METHODS =========================
 
