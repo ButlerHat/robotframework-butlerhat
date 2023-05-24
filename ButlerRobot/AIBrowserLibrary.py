@@ -93,13 +93,27 @@ class AIBrowserLibrary(DataBrowserLibrary):
             self.wait_time = BuiltIn().get_variable_value('${ROBOT_BROWSER_WAIT}', 2)
         return self.wait_time
 
-    # Overwrites
+    # Overwrites    
     def _get_dom(self):
         return ''
     
     def _wait_for_browser(self):
         pass
         BuiltIn().sleep(self._wait)  # Less than recording
+
+    def _start_suite(self, name, attrs):
+        # Check if can access to the AI
+        try:
+            response = requests.get(self.ai_url.split('.com')[0] + '.com/auth')  # Temporary fix
+        except requests.exceptions.ConnectionError:
+            raise Exception(f"Can't connect to the AI URL. Contact with the administrator.")
+        if response.status_code != 200:
+            raise Exception(f"Can't access to the AI URL. Contact with the administrator.")
+        # Check if in the json response is {"auth": True}
+        if not response.json().get('auth', False):
+            raise Exception(f"The use of the framework is not authorized. Contact with the administrator.")
+        
+        return super()._start_suite(name, attrs)
 
     def _pre_run_keyword(self) -> None:
         """
