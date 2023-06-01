@@ -243,7 +243,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
 
     @staticmethod
     def _set_mode(mode_in_prompt: str) -> AIMode:
-        if not mode_in_prompt:
+        if not 'flexible' in mode_in_prompt.lower() and not 'strict' in mode_in_prompt.lower() and not 'critical' in mode_in_prompt.lower():
             mode_in_prompt = BuiltIn().get_variable_value('${DEFAULT_AI_MODE}', 'strict')
         
         if 'flexible' in mode_in_prompt.lower():

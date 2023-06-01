@@ -213,8 +213,8 @@ class DataWrapperLibrary:
     def _update_observation_and_set_in_parents(self, observation: Observation | None = None) -> None:
             self.last_observation = self._get_observation() if observation is None else observation
             
-            # Update observation to inmediate parents with no steps
-            for prev_step_idx in range(len(self.exec_stack.get_stack())-1, 0, -1):
+            # Update observation to inmediate parents with no steps. For example, two task, is from 1 to 0 both included.
+            for prev_step_idx in range(len(self.exec_stack.get_stack())-1, -1, -1):
                 prev_step = self.exec_stack.get_stack()[prev_step_idx]
                 if isinstance(prev_step, Task) and len(prev_step.steps) == 0:
                     assert prev_step.context is not None, 'Trying to scroll to top. Error when updating context.'
