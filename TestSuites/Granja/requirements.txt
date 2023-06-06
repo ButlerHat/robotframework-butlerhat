@@ -1,0 +1,3 @@
+pyautogui
+rpaframework
+robotframework>=6.0.2

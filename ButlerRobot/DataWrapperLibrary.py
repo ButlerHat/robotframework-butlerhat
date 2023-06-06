@@ -708,9 +708,6 @@ class DataWrapperLibrary:
                 self._pre_run_keyword()
                 complete_start_context()
 
-        # ============ PRE RUN KEYWORD ============
-        
-
         # ============ RUN KEYWORD ============
         # Keywords with @keyword decorator
         for n, value in self.keywords_decorator:

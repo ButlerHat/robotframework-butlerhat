@@ -1,5 +1,5 @@
 *** Settings ***
-Library   ButlerRobot.AIBrowserLibrary   strict=${False}  fix_bbox=${TRUE}  presentation_mode=${True}  console=${False}  record=${True}  output_path=${OUTPUT_DIR}/data_gym  AS  Browser
+Library   ButlerRobot.AIBrowserLibrary   strict=${False}  fix_bbox=${TRUE}  presentation_mode=${True}  console=${False}  record=${True}  output_path=${OUTPUT_DIR}/data_gym  WITH NAME  Browser
 Variables  variables/credentials.py
 
 

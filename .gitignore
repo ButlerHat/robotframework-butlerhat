@@ -1,6 +1,8 @@
 .DS_Store
 
 # RobotFramework
+data_gym/
+desktop/
 crawl_amazon_data/
 logfile_out*
 *.tar.gz

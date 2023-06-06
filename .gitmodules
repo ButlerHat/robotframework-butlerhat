@@ -4,3 +4,6 @@
 [submodule "TestSuites/CicloZero"]
 	path = TestSuites/CicloZero
 	url = git@github.com:ButlerHat/CicloZero.git
+[submodule "TestSuites/ONCE"]
+	path = TestSuites/ONCE
+	url = https://github.com/ButlerHat/ONCE.git
