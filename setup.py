@@ -15,7 +15,7 @@ package_data = {
     ],
 }
 
-packages = find_packages(exclude=["test", "TestSuites"])
+packages = find_packages(exclude=["test", "TestSuites", "ButlerApi"])
 
 install_requires = open(os.path.join("ButlerRobot", "requirements.txt")).readlines()
 

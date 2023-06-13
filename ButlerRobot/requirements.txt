@@ -1,4 +1,5 @@
 wheel
+robotframework>=6.0.2
 robotframework-browser>=16.0.5
 robotframework-seleniumlibrary
 fastdeploy-python
@@ -8,3 +9,5 @@ cryptography
 datasets
 pandas
 openpyxl
+pyautogui
+rpaframework

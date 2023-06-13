@@ -4,8 +4,10 @@ from enum import Enum, auto
 import math
 import base64
 import json
+import os
 import re
 import imagehash
+import pickle
 from io import BytesIO
 from PIL import Image
 from dataclasses import dataclass, field, asdict
@@ -90,6 +92,28 @@ class PageAction(Step):
 @dataclass
 class Task(Step):
     steps: list[Step] = field(default_factory=list)
+
+    def save(self, save_path: str, save_json: bool = False):
+        """
+        Save task to pickle file. If save_json is True, save also to json file.
+        :param save_path: Path to save the task.
+        :param save_json: If True, save also to json file.
+        """
+        # If save path is a directory, save with the name of the task
+        if os.path.exists(save_path) and os.path.isdir(save_path):
+            save_path = os.path.join(save_path, f"{self.name}.pickle")
+        elif not save_path.endswith('.pickle'):
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            save_path = os.path.join(save_path, f"{self.name}.pickle")
+        # Else save with the given path
+
+        # Save pickle
+        with open(save_path, "wb") as f:
+            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+
+        if save_json:
+            with open(save_path.replace('.pickle', '.json'), 'w') as f:
+                json.dump(asdict(self), f, indent=4)
 
     def _get_parents_ids(self, step_id: int) -> list[int]:
         """
@@ -302,7 +326,7 @@ class Task(Step):
 @dataclass
 class Context:
     start_observation: Observation
-    status: str
+    status: str  # Status for keyword: "NOT_SET", "PASS", "FAIL", etc. Now all this is handle with Step.status
     end_observation: Observation = field(default=None)  # type: ignore
 
     def is_complete(self) -> bool:

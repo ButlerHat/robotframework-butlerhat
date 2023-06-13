@@ -22,7 +22,7 @@ class CrawlLibrary:
     """
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
-    def __init__(self, ocr_url=None):
+    def __init__(self, ocr_url=None, max_elements: int = -1, lang_instructions: str = "en"):
         try:
             lib: DataBrowserLibrary = BuiltIn().get_library_instance('Browser')
             lib.add_task_library('CrawlLibrary')
@@ -36,6 +36,8 @@ class CrawlLibrary:
         if ocr_url is not None:
             BuiltIn().set_global_variable('${OCR_URL}', ocr_url)
         self._library: Browser = lib._library  # Need to access the private library to no record all.
+        self._max_elements = max_elements
+        self._lang_instructions = lang_instructions
 
     # ======= Task Keywords =======	 
     def crawl(self, url, max_number_of_page_to_crawl=2):
@@ -49,7 +51,7 @@ class CrawlLibrary:
         # recorders = [TypeTextRecorder]
 
         for recorder in recorders:
-            data_recorder = recorder(self._library)
+            data_recorder = recorder(self._library, max_elements=self._max_elements, lang_instructions=self._lang_instructions)
             data_recorder.record()
 
 

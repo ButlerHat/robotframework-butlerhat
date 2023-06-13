@@ -1,4 +1,5 @@
 import os
+import ButlerRobot
 import cv2
 import random
 import imagehash
@@ -7,7 +8,7 @@ from typing import Optional
 from PIL import Image
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
-from Browser.utils.data_types import KeyboardInputAction
+from Browser.utils.data_types import KeyboardInputAction, KeyAction
 from Browser import Browser
 from .src.data_types import BBox
 
@@ -28,7 +29,7 @@ class DataRecorderInterface:
     ROBOT_AUTO_KEYWORDS = False
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
-    def __init__(self, library_instance: Browser, elements_xpath: list, wait_to_go: int = 2, max_scroll: int = 5):
+    def __init__(self, library_instance: Browser, elements_xpath: list, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
         # Browser instance
         self.library: Browser = library_instance
         # Elemnents xpath
@@ -37,11 +38,15 @@ class DataRecorderInterface:
         self.wait_to_go: int = wait_to_go
         # Max scroll to do
         self.max_scroll: int = max_scroll
+        # Max number of elements to scroll. -1 for no limit. -2 for half of not scrollable elements.
+        self.max_elements: int = max_elements
+        # Lang
+        self.lang_instructions: str = lang_instructions
 
         # ====== Utils ======
         # OCR
         ocr_url = BuiltIn().get_variable_value("${OCR_URL}")
-        self.ocr_url: str = ocr_url if ocr_url else "http://nginx_alfred:80/fd/ppocrv3"
+        self.ocr_url: str = ocr_url if ocr_url else "http://ocr.butlerhat.com/fd/ppocrv3"
         lang = BuiltIn().get_variable_value("${OCR_LANG}")
         self.lang: str = lang if lang else "en"
 
@@ -80,7 +85,7 @@ class DataRecorderInterface:
         elements = self._get_elements_to_record()
         self._record_elements(elements)
 
-    def _get_elements_to_record(self, expand_bbox: bool = False, max_scroll_elements: int = -2):
+    def _get_elements_to_record(self, expand_bbox: bool = False):
         """
         Get all the interactuable elements in the page in the form of a list of screenshot elements.
         :param expand_bbox: Expand the bbox of the element to include the label. Not necessary for buttons.
@@ -147,7 +152,7 @@ class DataRecorderInterface:
             old_timeout = self.library.set_browser_timeout(1)  # type: ignore (is timedelta from rf)
             web_elements = self.library.get_elements(element_xpath)
             old_timeout = self.library.set_browser_timeout(old_timeout)
-            max_scroll_elements = len(web_elements) // 2 if max_scroll_elements == -2 else max_scroll_elements
+            max_scroll_elements = len(web_elements) // 2 if self.max_elements == -2 else self.max_elements
             # Shuffle web elements to avoid being on top of the page
             random.shuffle(web_elements)
             for element in web_elements:
@@ -366,11 +371,11 @@ class SingleClickRecorder(DataRecorderInterface):
     Given a page, record all the single click events that are feasible in that page. After that,
     reset the page to its original state.
     """
-    def __init__(self, library_instance: Browser, wait_go_to=2):
+    def __init__(self, library_instance: Browser, wait_go_to=2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
         # Clicable elements
         button_xpath = ['//a', '//button']
 
-        super().__init__(library_instance, button_xpath, wait_go_to)
+        super().__init__(library_instance, button_xpath, wait_to_go=wait_go_to, max_scroll=max_scroll, max_elements=max_elements, lang_instructions=lang_instructions)
         self.wait_go_to = wait_go_to
 
     def _is_good_element(self, element_screenshot: str):
@@ -386,7 +391,11 @@ class SingleClickRecorder(DataRecorderInterface):
     def _predict_instruction(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox):
         # Read the text of the element
         text = self._get_text(element_path)
-        return f"Click on {text}"
+        if self.lang_instructions == "es":
+            click_str = ["Clica en", "Ir a", "Pulsa", "Accede a", ""]
+        else:
+            click_str = ["Click on", "Go to", "Press", "Access to", ""]
+        return f"{random.choice(click_str)} {text}"
     
     def _action(self, predicted_instruction: str, img_element: cv2.Mat, el_margin: tuple[int, int]):
 
@@ -395,17 +404,21 @@ class SingleClickRecorder(DataRecorderInterface):
         _, height = self.library.get_client_size().values()
         scroll_gap = height // 2
 
-        # To run a keyword like a Task, the library must be imported.
-        args = (
-            self.library,
-            self.wait_go_to
-        )
-
         SingleClickRecorder.vars = {}
         SingleClickRecorder.vars['img_element'] = img_element
         SingleClickRecorder.vars['el_margin'] = el_margin
         SingleClickRecorder.vars['scroll_gap'] = scroll_gap
-        
+
+        # To run a keyword like a Task, the library must be imported.
+        # Due to import library does not accept kwargs, all args must be passed
+        args = (
+            self.library,
+            self.wait_go_to,
+            self.max_scroll,
+            self.max_elements,
+            self.lang_instructions
+        )
+
         # The library must be imported with the name of the library to custom the name of the Task
         BuiltIn().import_library("ButlerRobot.RecordersLibraries.SingleClickRecorder", *args, 'WITH NAME', 'SingleClickRecorder')
         passed = BuiltIn().run_keyword_and_return_status(f"SingleClickRecorder.{predicted_instruction}")
@@ -444,21 +457,15 @@ class TypeTextRecorder(DataRecorderInterface):
     Given a page, record all the single click events that are feasible in that page. After that,
     reset the page to its original state.
     """
-    def __init__(self, library_instance: Browser, num_words_per_input = 5, wait_go_to=2):
+    def __init__(self, library_instance: Browser, num_words_per_input = 5, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
         # Text elements
         text_xpath = ['//input[@type="text"]', '//input[@type="password"]', '//input[@type="email"]', '//input[@type="number"]', '//input[@type="tel"]', '//input[@type="url"]', '//input[@type="search"]', '//textarea']
         
-        super().__init__(library_instance, text_xpath, wait_go_to)
-        self.wait_go_to = wait_go_to
+        super().__init__(library_instance, text_xpath, wait_to_go=wait_to_go, max_scroll=max_scroll, max_elements=max_elements, lang_instructions=lang_instructions)
         self.num_words_per_input = num_words_per_input
 
         # Vocabulary
-        file_dir = os.path.dirname(os.path.realpath(__file__))
-        vocab_path = f'{file_dir}/../data/vocabulary.tsv'
-        with open(vocab_path, 'r') as f:
-            self.seed_words = [line.split('\t')[0] for line in f]
-        if len(self.seed_words) <= 0:
-            raise Exception(f'The length of seed words should be larger than zero. Loaded from {vocab_path}')
+        self.seed_words = ButlerRobot.vocabulary.get_vocabulary()
 
     # ============== Override ==============
     def record(self):
@@ -492,17 +499,6 @@ class TypeTextRecorder(DataRecorderInterface):
         Find the closest text to the action_bbox.
         """
         def get_texts_and_bboxes(screenshot_path: str) -> list[tuple[str, BBox]]:
-            # Read the text of the all screenshot
-            # response = requests.post(f"{self.ocr_url}", files={"image": open(screenshot_path, "rb")}, data={"lang": self.lang})
-            # result = response.json()["result"]
-            # if not result or not result[0]:
-            #     return []
-            # # Filter the texts with less than 80% confidence
-            # text_and_bboxes = [
-            #     (text, BBox(top_l[0], top_l[1], buttom_r[0]-top_l[0], buttom_r[1]-top_l[1]))
-            #     for [[top_l, top_r, buttom_r, buttom_l], [text, confidence]] in result[0] 
-            #     if confidence > 0.8
-            # ]
             # Get text and bbox
             lang = BuiltIn().get_variable_value("${LANG}", default="en")
             img_screen = Image.open(screenshot_path)
@@ -512,8 +508,12 @@ class TypeTextRecorder(DataRecorderInterface):
                 return []
             # Return list(text, bbox) from text_and_bboxes of type tuple[list[str], list[BBox]]
             return list(zip(*text_and_bboxes))
-
-        instruction = "Type text {0}".format(string)
+        if self.lang_instructions == "es":
+            type_str = ["Introduce el texto", "Escribe", "Pon", "Busca", "Introduce", "Escribe el texto", "Busca", "Introduce el texto"]
+        else:
+            type_str = ["Type text", "Write", "Put", "Search", "Type", "Write text", "Search", "Type text"]
+        instruction = f"{random.choice(type_str)} {string}"
+        # instruction = "Type text {0}".format(string)
         if not screenshot_path:
             return instruction
 
@@ -532,7 +532,10 @@ class TypeTextRecorder(DataRecorderInterface):
                 # Find the closest text
             if len(candidate_text_boxes) > 0:
                 closest_text = min(candidate_text_boxes, key=lambda text_bbox: action_bbox.distance(text_bbox[1]))
-                instruction += f" in {closest_text[0]}"
+                if self.lang_instructions == "es":
+                    instruction += f" en {closest_text[0]}"
+                else:
+                    instruction += f" in {closest_text[0]}"
 
         return instruction
     
@@ -551,14 +554,25 @@ class TypeTextRecorder(DataRecorderInterface):
         TypeTextRecorder.vars['string'] = string
 
         # To run a keyword like a Task, the library must be imported.
-        args = (
+        # Due to import_library doesn't accept kwargs all args must be passed in order
+        # library_instance: Browser, num_words_per_input = 5, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"
+        args = (            
             self.library,
             self.num_words_per_input,
-            self.wait_go_to
+            self.wait_to_go,
+            self.max_scroll,
+            self.max_elements,
+            self.lang_instructions
         )
 
         BuiltIn().import_library("ButlerRobot.RecordersLibraries.TypeTextRecorder", *args, 'WITH NAME', 'TypeTextRecorder')
         passed = BuiltIn().run_keyword_and_return_status(f"TypeTextRecorder.{predicted_instruction}")  # Arguments are passed with a static variable in the class
+        # Remove text
+        self.library.keyboard_key(KeyAction.down, 'Shift')
+        self.library.keyboard_key(KeyAction.press, 'Home')
+        self.library.keyboard_key(KeyAction.press, 'Delete')
+        self.library.keyboard_key(KeyAction.up, 'Shift')
+        
         if not passed:
             BuiltIn().run_keyword('Browser.Remove Last Task')  # self.library is Browser, but the Browser in RF is DataBrowserLibrary
     
