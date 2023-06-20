@@ -1,5 +1,6 @@
 wheel
-robotframework>=6.0.2
+robotframework>=5.0.1
+# robotframework>=6.0.2  < When rpaframework is updated to support RF 6
 robotframework-browser>=16.0.5
 robotframework-seleniumlibrary
 fastdeploy-python
@@ -9,5 +10,5 @@ cryptography
 datasets
 pandas
 openpyxl
+rpaframework>=23.3.0
 pyautogui
-rpaframework

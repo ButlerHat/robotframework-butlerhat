@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
-from robot.running.arguments.embedded import EmbeddedArguments
+from robot.running.arguments.embedded import EmbeddedArguments, EmbeddedArgumentParser
 # Install with pip install -e .
 # Needs this import to be able to reuse pickle
 from .src.data_types import BBox, Observation, Context, Step, PageAction, Task, DomSet, SaveStatus
@@ -476,10 +476,15 @@ class DataWrapperLibrary:
 
         # Change name with resolved variables
         name = attrs['kwname']
-        embedded = EmbeddedArguments.from_name(name)
-        for arg in embedded.args:
-            value = BuiltIn().get_variable_value('${' + arg + '}')
-            name = name.replace('${' + arg + '}', str(value))
+        
+        # TODO: Uncomment when robotframework 6.0.1 is compatible with rpaframework. See commit of this change
+        # embedded = EmbeddedArguments.from_name(name)
+        embedded = EmbeddedArguments(name)
+        if hasattr(embedded, 'args') and embedded.args:
+            for arg in embedded.args:  # type: ignore
+                value = BuiltIn().get_variable_value('${' + arg + '}')
+                name = name.replace('${' + arg + '}', str(value))
+        # End of TODO
         step.name = name
 
         # ============ STEP STACKING ============
