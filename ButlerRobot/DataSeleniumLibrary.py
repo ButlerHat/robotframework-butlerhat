@@ -92,7 +92,7 @@ class DataSeleniumLibrary(DataWrapperLibrary):
         BuiltIn().sleep(3)  # For safe recording
     
     def _run_scroll(self, selector: str) -> None:
-        BuiltIn().run_keyword('Scroll Down', selector)
+        BuiltIn().run_keyword('SeleniumLibrary.Scroll Down', selector)
 
     def _scroll_to_top(self):
         self._library.execute_javascript('window.scrollTo(0, 0)')
@@ -143,9 +143,9 @@ class DataSeleniumLibrary(DataWrapperLibrary):
         # Replace with Click at BBox
         assert current_action.action_args.bbox, 'Trying to input text. The PageAction has no bbox'
         try:
-            BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
+            BuiltIn().run_keyword('SeleniumLibrary.Click At BBox', str(current_action.action_args.bbox))
             # Add Keyboard Input
-            BuiltIn().run_keyword('Keyboard Input', text)
+            BuiltIn().run_keyword('SeleniumLibrary.Keyboard Input', text)
         finally:
             # Push keyword to ignore in end_keyword
             current_action.status = SaveStatus.no_record
@@ -161,7 +161,7 @@ class DataSeleniumLibrary(DataWrapperLibrary):
         # Replace with Click at BBox
         assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox'
         try:
-            BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
+            BuiltIn().run_keyword('SeleniumLibrary.Click At BBox', str(current_action.action_args.bbox))
         finally:
             # Push keyword to ignore in end_keyword
             current_action.status = SaveStatus.no_record

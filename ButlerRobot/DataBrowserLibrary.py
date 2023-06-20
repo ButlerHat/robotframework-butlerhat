@@ -91,7 +91,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return self._library.get_viewport_size()
 
     def _run_scroll(self, selector: str) -> None:
-        BuiltIn().run_keyword('Scroll Down', selector)
+        BuiltIn().run_keyword('Browser.Scroll Down', selector)
     
     def _get_screenshot(self, selector=None):
         if not selector:
@@ -199,7 +199,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
             # Check if is a scroll in bounding box or scroll in page
             if scroll_dict['is_parent_scrolled']:
                # The start observation will be modified inside the keyword.
-               BuiltIn().run_keyword('Scroll Down')
+               BuiltIn().run_keyword('Browser.Scroll Down')
 
             else:
                 # The scroll is done in a scrollable object.
@@ -208,7 +208,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
                 fix_selector = self.fix_bbox
                 self.fix_bbox = False
                 try:
-                    BuiltIn().run_keyword('Scroll Down At BBox', bbox_arg)
+                    BuiltIn().run_keyword('Browser.Scroll Down At BBox', bbox_arg)
                 finally:
                     self.fix_bbox = fix_selector  # In try to support keywords like "Run Keyword And Ignore Error"
         else:
@@ -233,9 +233,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # Replace with Click at BBox
         try:
             assert current_action.action_args.bbox, 'Trying to input text. The PageAction has no bbox'
-            BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
+            BuiltIn().run_keyword('Browser.Click At BBox', str(current_action.action_args.bbox))
             # Add Keyboard Input
-            BuiltIn().run_keyword('Keyboard Input', text)
+            BuiltIn().run_keyword('Browser.Keyboard Input', text)
         finally:
             # Push keyword to ignore in end_keyword
             current_action.status = SaveStatus.no_record
@@ -251,7 +251,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # Replace with Click at BBox
         try:
             assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Could be be a bad selector'
-            BuiltIn().run_keyword('Click At BBox', str(current_action.action_args.bbox))
+            BuiltIn().run_keyword('Browser.Click At BBox', str(current_action.action_args.bbox))
         finally:
             # Push keyword to ignore in end_keyword
             current_action.status = SaveStatus.no_record
@@ -528,11 +528,11 @@ class DataBrowserLibrary(DataWrapperLibrary):
         curr_val_fix_bbox = self.fix_bbox if hasattr(self, 'fix_bbox') else False
         self.fix_bbox = False
         try:
-            BuiltIn().run_keyword('Click At BBox', bbox)
+            BuiltIn().run_keyword('Browser.Click At BBox', bbox)
         finally:
             self.fix_bbox = curr_val_fix_bbox
         
-        BuiltIn().log_to_console(f'Click at BBox  {str(bbox)}')
+        BuiltIn().log_to_console(f'Browser.Click at BBox  {str(bbox)}')
 
     @keyword(name='Record Scroll', tags=['task', 'only_substeps'])
     def record_scroll(self):
@@ -545,11 +545,11 @@ class DataBrowserLibrary(DataWrapperLibrary):
         curr_val_fix_bbox = self.fix_bbox if hasattr(self, 'fix_bbox') else False
         self.fix_bbox = False
         try:
-            BuiltIn().run_keyword('Scroll At BBox', bbox)
+            BuiltIn().run_keyword('Browser.Scroll At BBox', bbox)
         finally:
             self.fix_bbox = curr_val_fix_bbox
 
-        BuiltIn().log_to_console(f'Scroll at BBox  {str(bbox)}')
+        BuiltIn().log_to_console(f'Browser.Scroll at BBox  {str(bbox)}')
 
     @keyword(name='Record BBox', tags=['action', 'no_record'])
     def record_bbox(self) -> BBox:
