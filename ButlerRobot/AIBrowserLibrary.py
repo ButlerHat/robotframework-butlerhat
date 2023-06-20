@@ -41,11 +41,11 @@ class IAToRFParser:
             # BBox is in format (x1, y1, x2, y2) but Robot Framework needs (x, y, width, height)
             bbox.width = bbox.width - bbox.x
             bbox.height = bbox.height - bbox.y
-            return ('Click At BBox', bbox)
+            return ('Browser.Click At BBox', bbox)
         elif "input" in action_lower:
             # Input text in this format: 'action: Input Text "text"'
             text = action.split('"')[1].strip()
-            return ('Keyboard Input', 'type', text)
+            return ('Browser.Keyboard Input', 'type', text)
         elif "scroll" in action_lower:
             _, height = self._library.get_client_size().values()
             scroll_gap = height // 2
@@ -244,7 +244,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
     @staticmethod
     def _set_mode(mode_in_prompt: str) -> AIMode:
         if not 'flexible' in mode_in_prompt.lower() and not 'strict' in mode_in_prompt.lower() and not 'critical' in mode_in_prompt.lower():
-            mode_in_prompt = BuiltIn().get_variable_value('${DEFAULT_AI_MODE}', 'strict')
+            mode_in_prompt = BuiltIn().get_variable_value('${DEFAULT_AI_MODE}', 'flexible')
         
         if 'flexible' in mode_in_prompt.lower():
             return AIMode.flexible

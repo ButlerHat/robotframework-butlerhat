@@ -13,7 +13,7 @@ from typing import Dict
 from ButlerRobot.src.exec_stack_recorder import ExecStackRecorder
 from ButlerRobot.src.robot_actions import RobotActions, ActionParser
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -75,7 +75,7 @@ class NewTaskAction(BaseModel):
     task_instruction: str = ""
     selector_dom: str = ""
     bbox: dict | BBox | None = None
-    string: str = ""
+    keySequence: str = ""
 
     def post_init(self):
         if self.bbox is not None and isinstance(self.bbox, dict):
@@ -132,7 +132,7 @@ async def add_page_action(task_id: str, page_action: NewTaskAction):
     action_args = ActionArgs(
         selector_dom=page_action.selector_dom,
         bbox=page_action.bbox,  # type: ignore
-        string=page_action.string,
+        string=page_action.keySequence,
     )
     screenshot = page_action.screenshot
 
@@ -178,7 +178,7 @@ async def add_step(task_id: str, action_task: NewTaskAction):
     action_args = ActionArgs(
         selector_dom=action_task.selector_dom,
         bbox=action_task.bbox,  # type: ignore
-        string=action_task.string,
+        string=action_task.keySequence,
     )
 
     recorder.store_page_action(action, action_args, action_task.screenshot)

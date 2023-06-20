@@ -7,3 +7,6 @@
 [submodule "TestSuites/ONCE"]
 	path = TestSuites/ONCE
 	url = git@github.com:ButlerHat/ONCE.git
+[submodule "interpreter-butlerhat"]
+	path = interpreter-butlerhat
+	url = git@github.com:ButlerHat/interpreter-butlerhat.git
