@@ -15,8 +15,21 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
                 context.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
                 context.drawImage(image, 0, 0);
                 var downscaledDataUrl = canvas.toDataURL('image/png');
-                
-                sendResponse({dataUrl: downscaledDataUrl});
+
+                // Check if request has bbox. Resize the bounding box to fit the downscaled image.
+                if (request.bbox) {
+                    var bbox = request.bbox;  // bbox = {top, left, width, height}
+                    // Esto es necesario cuando se usa el chrome en un monitor normal.
+                    // bbox.top = bbox.top / devicePixelRatio;
+                    // bbox.left = bbox.left / devicePixelRatio;
+                    // bbox.width = bbox.width / devicePixelRatio;
+                    // bbox.height = bbox.height / devicePixelRatio;
+
+                    sendResponse({dataUrl: downscaledDataUrl, bbox: bbox});
+                }
+                else {
+                    sendResponse({dataUrl: downscaledDataUrl});
+                }
             };
             image.src = dataUrl;
         });
