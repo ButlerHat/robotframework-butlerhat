@@ -197,8 +197,14 @@ async def end_task(task_id: str, task: EndTask):
         raise HTTPException(status_code=400, detail=e)
 
     recorder = recorders[task_id]
-    recorder.save_task(task.screenshot)
-    del recorders[task_id]
+    try:
+        recorder.save_task(task.screenshot)
+    except AssertionError as e:
+        raise HTTPException(status_code=400, detail=f'Not recording this session: {e}')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Error saving task: {e}')
+    finally:
+        del recorders[task_id]
     return {"message": "Task ended successfully"}
 
 

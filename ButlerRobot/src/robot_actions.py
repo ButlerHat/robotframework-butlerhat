@@ -7,6 +7,7 @@ class RobotActions(Enum):
     """
     click_at_bbox = "Click At BBox"
     keyboard_input = "Keyboard Input"
+    keyboard_key = "Keyboard Key"
     scroll_down = "Scroll Down"
     scroll_up = "Scroll Up"
     scroll_down_at_bbox = "Scroll Down At BBox"
@@ -19,6 +20,8 @@ class ActionParser:
             return RobotActions.click_at_bbox
         elif action == "keyboard_input":
             return RobotActions.keyboard_input
+        elif action == "keyboard_key":
+            return RobotActions.keyboard_key
         elif action == "scroll_down":
             return RobotActions.scroll_down
         elif action == "scroll_up":
