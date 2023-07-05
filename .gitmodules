@@ -10,3 +10,6 @@
 [submodule "interpreter-butlerhat"]
 	path = interpreter-butlerhat
 	url = git@github.com:ButlerHat/interpreter-butlerhat.git
+[submodule "ButlerApi/chrome_plugin-butlerhat"]
+	path = ButlerApi/chrome_plugin-butlerhat
+	url = git@github.com:ButlerHat/chrome_plugin-butlerhat.git
