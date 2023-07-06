@@ -34,6 +34,7 @@ class ExecStackRecorder:
             assert self.last_step.context is not None, "Trying to update last step. No context found"
             if isinstance(self.last_step, Task):
                 assert self.last_step.steps, "Trying to update last task. No steps found"
+                assert self.last_step.steps[-1].context, "Trying to update last task. No context found in this last step"
                 self.last_step.steps[-1].context.end_observation = observation
             self.last_step.context.end_observation = observation
 
@@ -83,6 +84,7 @@ class ExecStackRecorder:
         assert self.last_actions, "Trying to store a task without any actions"
         
         # Create task. The end observation is pending to be updated by next page action or save task.
+        assert self.last_actions[0].context, "Trying to store a task. No first observation found"
         start_observation = self.last_actions[0].context.start_observation
         context = Context(start_observation=start_observation, status='PASS')
 
@@ -111,6 +113,7 @@ class ExecStackRecorder:
         assert self.last_step.context, "Trying to save task. No context found in last step"
 
         start_context = copy.deepcopy(self.root_task.steps[0].context)
+        assert start_context, "Trying to save task. No context found in first step"
         end_time = self.start_time + timedelta(seconds=self.id_count)
         end_observation = Observation(time=end_time, screenshot=screenshot, dom="", pointer_xy=(-1, -1))
         self._update_last_task(end_observation)
@@ -123,4 +126,5 @@ class ExecStackRecorder:
         # Save task
         self.root_task.save(self.out_path)
         logger.info(f"Saved task {self.root_task.name}")
+        return self.root_task.name
         
