@@ -151,6 +151,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             elif isinstance(selector, str):
                 str_selector: str = str(selector)
                 r_bbox, r_pointer_xy = super()._retrieve_bbox_and_pointer_from_page(str_selector)
+            # It is not a string, so it is a browser type like KeyAction
             else:
                 return None, None
             

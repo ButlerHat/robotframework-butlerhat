@@ -8,7 +8,7 @@ from .src.utils.ocr import get_all_text
 from typing import Optional, Union
 from PIL import Image
 from Browser import Browser, KeyboardModifier, MouseButton
-from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails, BoundingBox
+from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails, BoundingBox, KeyAction
 from Browser.utils.data_types import ScreenshotReturnType
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
@@ -65,7 +65,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self.action_tags = ['PageContent', 'ActionWrapper', 'AI']
         self.exclude_tags = ['Wait']
 
-        self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'presskeys': ':1'}
+        self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'keyboardkey': 0, 'presskeys': ':1'}
         
         # ==== Added Keywords ====
         # To add functions to the library
@@ -428,6 +428,16 @@ class DataBrowserLibrary(DataWrapperLibrary):
 
         self._library.mouse_move(middle_coordinates[0], middle_coordinates[1])
         self._library.mouse_wheel(0, -offset)
+
+    @keyword(name='Keyboard Key', tags=['action', 'PageContent'])
+    def keyboard_key(self, key: str):
+        """
+        Override Keyboard Key. Remove KeyAction from arguments.
+        :param key: Key to press.
+        """
+        # Due to 
+        
+        self._library.keyboard_key(KeyAction.press, key)
 
     @keyword(name='Is Text Visible', tags=['tesk', 'no_record'])
     def is_text_visible(self, text: str, selector: str | BBox | None = None) -> bool:

@@ -46,7 +46,7 @@ class DataRecorderInterface:
         # ====== Utils ======
         # OCR
         ocr_url = BuiltIn().get_variable_value("${OCR_URL}")
-        self.ocr_url: str = ocr_url if ocr_url else "http://ocr.butlerhat.com/fd/ppocrv3"
+        self.ocr_url: str = ocr_url if ocr_url else "http://nginx_alfred/fd/ppocrv3"
         lang = BuiltIn().get_variable_value("${OCR_LANG}")
         self.lang: str = lang if lang else "en"
 

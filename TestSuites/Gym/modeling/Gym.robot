@@ -1,8 +1,8 @@
 *** Settings ***
 # Variables  variables/variables.py
-Library  utils/function.py
+Library  ../utils/function.py
 Library  ButlerRobot.keywords.data_generator
-Library  ButlerRobot.DataSeleniumLibrary  AS   SeleniumLibrary
+Library  ButlerRobot.DataSeleniumLibrary  WITH NAME   SeleniumLibrary
 Library    Collections
 
 *** Variables ***

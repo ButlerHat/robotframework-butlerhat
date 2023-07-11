@@ -193,7 +193,7 @@ class DataWrapperLibrary:
 
     def _get_bbox_and_pointer(self, selector: str | BBox) -> tuple[None, None] | tuple[BBox, tuple]:
             """
-            This method gets the BBox and pointer of a selector.
+            This method gets the BBox and pointer of a selector. (Sets the first observation)
             """
             # When is a BBox selector
             if isinstance(selector, str) and selector.startswith("BBox") or isinstance(selector, BBox):
@@ -209,7 +209,16 @@ class DataWrapperLibrary:
                 return self._retrieve_bbox_and_pointer_from_page(str_selector)
             
     def _update_observation_and_set_in_parents(self, observation: Observation | None = None) -> None:
+            """
+            Update the last observation and set it to the parents. This doesn't update the observation of page actions.
+            """
             self.last_observation = self._get_observation() if observation is None else observation
+
+            # Could be a PageAction at the top of the stack. This function only updates the observation of the parents
+            if not self.exec_stack.is_empty() and isinstance(self.exec_stack.get_last_step(), PageAction):
+                last_page_action = self.exec_stack.pop()
+            else:
+                last_page_action = None
             
             # Update observation to inmediate parents with no steps. For example, two task, is from 1 to 0 both included.
             for prev_step_idx in range(len(self.exec_stack.get_stack())-1, -1, -1):
@@ -219,6 +228,10 @@ class DataWrapperLibrary:
                     prev_step.context.start_observation = self.last_observation
                 else:
                     break
+
+            # Push back the page action
+            if last_page_action:
+                self.exec_stack.push(last_page_action)
 
     def _add_scroll_when_recording(self, step: PageAction) -> PageAction:
         """
@@ -649,7 +662,7 @@ class DataWrapperLibrary:
             kw = name.lower().replace(' ', '').replace('_', '')
             string_kw = [k for k in self.typing_kw_stringpos.keys() if k in kw]
             
-            # First arg: BBox, if not string kw
+            # First arg (locator): BBox, if not string in the first argument.
             if 'bbox' in name.lower() or 'scroll' not in name.lower() and len(args) > 0 \
                 and not(len(string_kw) > 0 and self.typing_kw_stringpos[string_kw[0]] == 0):
 
@@ -662,7 +675,7 @@ class DataWrapperLibrary:
                     action.action_args.bbox = bbox
                     action.action_args.selector_dom = str(args[0])
             
-            # String
+            # String: Defined position of the string in typing_kw_stringpos
             if len(args) > 0 and len(string_kw) > 0:
                     # Lets assume that the second argument is the string (Input text)
                     action.action_args.string = args[self.typing_kw_stringpos[string_kw[0]]]
@@ -670,6 +683,9 @@ class DataWrapperLibrary:
             return action
 
         def complete_start_context():
+            """
+            Complete start context of the parents only.
+            """
             # Capture observation if browser is open and no observation was captured. This means is the first keyword after the open browser.
             if self._is_browser_open():  # and self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
                 # Observation could be captured in complete page action
@@ -678,9 +694,6 @@ class DataWrapperLibrary:
                     self.no_record_next_observation = False
                 else:
                     observation = self._get_observation()
-                # Update start observation of the rest of the step stack if no observation was captured
-                if self.last_observation == Observation(datetime.now(), "", "", (0, 0)):
-                    self._update_observation_and_set_in_parents(observation)
                 # Update last observation of parents
                 self.last_observation = observation
 
@@ -698,6 +711,8 @@ class DataWrapperLibrary:
                 step = complete_page_action(step)
 
                 try:
+                    # Scroll if the element is not in the viewport
+                    # Appends scroll in the stack and returns the updated step (for context)
                     step = self._add_scroll_when_recording(step)
                 except Exception as e:
                     BuiltIn().log(f'Error trying to scroll: {e}', 'DEBUG')
@@ -708,7 +723,7 @@ class DataWrapperLibrary:
         # ============ START CONTEXT ============
             # Not explicit wait because complete page action suppose to wait for the element
             if step.status != SaveStatus.no_record:
-                self._pre_run_keyword()
+                self._pre_run_keyword()  # Note: This is only used in BrowserLibrary to remove highlight (so far)
                 complete_start_context()
 
         # ============ RUN KEYWORD ============

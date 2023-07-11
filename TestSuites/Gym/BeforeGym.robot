@@ -52,8 +52,8 @@ Login
         Open Browser  https://deportesweb.madrid.es/DeportesWeb/Login  chrome
     END
     Maximize Browser Window
-    Wait Until Element Is Visible    //a[contains(text(),'Acceder')]
-    Click Element    //a[contains(text(),'Acceder')]
+    Wait Until Element Is Visible    //*[contains(text(),'Usuario y contraseña')]
+    Click Element    //*[contains(text(),'Usuario y contraseña')]
     
     Wait Until Element Is Visible    id=acceso_pass
     Click Element    id=acceso_pass

@@ -1,7 +1,7 @@
 *** Settings ***
 Documentation     Crawl most used websites in EU
-Library   ButlerRobot.AIBrowserLibrary  AS  Browser
-Library      ButlerRobot.CrawlLibrary  AS  CrawlLibrary
+Library   ButlerRobot.AIBrowserLibrary  WITH NAME  Browser
+Library      ButlerRobot.CrawlLibrary  WITH NAME  CrawlLibrary
 
 *** Variables ***
 ${OUTPUT_DIR}   /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat/TestSuites/Crawl
