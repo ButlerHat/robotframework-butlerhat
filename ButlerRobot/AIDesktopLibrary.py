@@ -2,6 +2,7 @@ import os
 import re
 import requests
 import copy
+from typing import Optional
 from enum import Enum, auto
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
@@ -20,8 +21,10 @@ class AIMode(Enum):
     
 
 class IAToRFParser:
-    def __init__(self, library: Desktop):
+    def __init__(self, library: Desktop, offset: int = 0, direction: str = 'none'):
         self._library = library
+        self.offset = offset
+        self.direction = direction
         pass
 
     def parse(self, action: str):
@@ -29,18 +32,46 @@ class IAToRFParser:
         Parse the action from the AI to a Robot Framework instruction
         """
         action_lower = action.strip().lower()
-        if "click" in action_lower:
-            # Click in this format: 'action: Click At Bbox (x1=87, y1=146, x2=197, y2=175)'
-            bbox: BBox = BBox.from_rf_string(action_lower)
+        bbox: Optional[BBox] = None
+        if 'bbox' in action_lower:
+            bbox = BBox.from_rf_string(action_lower)
             # BBox is in format (x1, y1, x2, y2) but Robot Framework needs (x, y, width, height)
             bbox.width = bbox.width - bbox.x
             bbox.height = bbox.height - bbox.y
+            if self.offset != 0:
+                if self.direction == 'arriba':
+                    bbox.y = bbox.y - self.offset
+                elif self.direction == 'abajo':
+                    bbox.y = bbox.y + self.offset
+                elif self.direction == 'izquierda':
+                    bbox.x = bbox.x - self.offset
+                elif self.direction == 'derecha':
+                    bbox.x = bbox.x + self.offset
+
+        if "click" in action_lower:
+            assert bbox is not None, f'Click action needs a bbox: {action}'
             return ('Desktop.Click At BBox', bbox)
         elif "input" in action_lower:
             # Input text in this format: 'action: Input Text "text"'
             text = action.split('"')[1].strip()
             return ('Desktop.Type text', text)
-        elif "scroll" in action_lower:
+        elif "key" in action_lower:
+            # Key in this format: 'action: Keyboard Key "key"'
+            key = action_lower.split('"')[1].strip()
+            keys = key.split('+')
+            # Convert control to ctrl in the same position
+            if 'control' in keys:
+                keys[keys.index('control')] = 'ctrl'
+            return ('Desktop.Press Keys', *keys)
+        elif "scroll" in action_lower and "up" in action_lower and "bbox" in action_lower:
+            assert bbox is not None, f'Scroll up action needs a bbox: {action}'	
+            return ('Desktop.Scroll Up At BBox', bbox)
+        elif "scroll" in action_lower and "down" in action_lower and "bbox" in action_lower:
+            assert bbox is not None, f'Scroll down action needs a bbox: {action}'	
+            return ('Desktop.Scroll Down At BBox', bbox)
+        elif "scroll" in action_lower and "up" in action_lower:
+            return ('Desktop.Scroll Up',)
+        elif "scroll" in action_lower and "down" in action_lower:
             return ('Desktop.Scroll Down',)
         else:
             return (action_lower,)
@@ -49,7 +80,8 @@ class IAToRFParser:
 class AIDesktopLibrary(DataDesktopLibrary):
 
     def __init__(
-            self, 
+            self,
+            compute_offset: bool = False,
             ai_url=None, 
             ocr_url=None,
             wait_for_browser=None,
@@ -58,8 +90,9 @@ class AIDesktopLibrary(DataDesktopLibrary):
             save_screenshots=False,
             *args, 
             **kwargs):
+        self.compute_offset = compute_offset
         # ia_url is nginx because the service mode
-        self.ai_url = ai_url if ai_url else os.environ.get('AI_URL', 'http://ai.butlerhat.com/predict_rf')
+        self.ai_url = ai_url if ai_url else os.environ.get('AI_URL', 'http://ai_demo.butlerhat.com/predict_rf')
         self.max_steps = max_steps
         self.with_tasks = with_tasks
         self.save_screenshots = save_screenshots
@@ -146,6 +179,75 @@ class AIDesktopLibrary(DataDesktopLibrary):
             return False
         BuiltIn().log(f"T5 response for element check: {output['generated_text'].strip()}, Instruction: {instruction}, Ocr element: {ocr_element}", level='DEBUG', console=self.console)
         return "yes" in output['generated_text'].strip().lower()
+    
+
+    def obtain_offset_spanish(self, instruction: str) -> tuple[str, int, str]:
+        """
+        Obtain the offset of the instruction in spanish.
+        Return a tuple with the instruction, the offset and the direction.
+        :param instruction: Instruction to obtain the offset
+        :return: Tuple with the instruction, the offset and the direction. The direction can be: arriba, abajo, izquierda, derecha, none
+        """
+        API_URL = "https://api-inference.huggingface.co/models/bigscience/bloom"
+        headers = {"Authorization": f"Bearer {self.hf_token}"}
+
+        def query(payload):
+            response = requests.post(API_URL, headers=headers, json=payload)
+            return response.json()
+        
+        BuiltIn().log(f"Waiting for model response. Checking instruction: {instruction}", level='DEBUG', console=self.console)
+        output = query({
+            "inputs": f"""
+                Obten el offset de la frase si lo tiene y reescribela para quitar la inforación del offset?
+
+                Ejemplo:
+                Instruccion: clica en el boton aceptar 10 pixeles a la derecha
+                Respuesta: clica en el boton aceptar
+                Offset: 10 derecha
+
+                Instruccion: pulsa en cargar archivo pero 25 a la izquierda
+                Respuesta: pulsa en cargar archivo
+                Offset: 25 izquierda
+
+                Instruccion: clica 20 más a arriba en bookmarks
+                Respuesta: clica en bookmarks
+                Offset: 20 arriba
+
+                Instruccion: clica buscar vuelos
+                Respuesta: clica buscar vuelos
+                Offset: 0
+
+                Instruccion: selecciona el elemento inventario 10 pixeles más abajo
+                Respuesta: selecciona el elemento inventario
+                Offset: 10 abajo
+
+                Instruccion: {instruction}
+            """,
+            "options": {
+                "wait_for_model": True
+            }
+        })
+        if isinstance(output, list):
+            output = output[0]
+        if 'generated_text' not in output:
+            BuiltIn().log(f"Error in T5 response: {output}", level='WARN', console=self.console)
+            return (instruction, 0, 'none')
+        BuiltIn().log(f"Response for element check: {output['generated_text'].strip()}, Instruction: {instruction}", level='DEBUG', console=self.console)
+        response: str = output['generated_text'].strip()
+        
+        # Get the prediction. Is after Instruction: {instruction} and before next Instruction:
+        prediction = response.split(f'Instruccion: {instruction}')[1].split('Instruccion:')[0]
+        
+        # Get the offset after Offset:
+        offset = re.findall(r'Offset:\s*(\d+)', prediction)
+        offset = int(offset[0]) if offset else 0
+        # Get the direction (arriba, abajo, izquierda, derecha) after Offset:
+        direction = re.findall(r'Offset:\s*\d+\s*(\w+)', prediction)
+        direction = str(direction[0]) if direction else 'none'
+        # Get the instruction after Respuesta: and before Offset:
+        new_instruction = re.findall(r'Respuesta:\s*(.+)\s*Offset:', prediction)
+        new_instruction = str(new_instruction[0]) if new_instruction else instruction
+        return (new_instruction, offset, direction)
 
 
     @staticmethod
@@ -178,6 +280,13 @@ class AIDesktopLibrary(DataDesktopLibrary):
         return
         # Do not check now. Support only flexible
 
+    def _continue_scrolling(self, i: int, action: str):
+        """
+        Limit the number of scrolls to 1.
+        TODO: Do a mode to limit scrolls and let the second prediction be an action
+        other than scroll.
+        """
+        return not('scroll' in action.lower() and i > 0)
 
     @keyword('AI${mode}.${task}', tags=['task'])  # Tag for recording in data
     def ai_task(self, mode: str, task: str):
@@ -195,12 +304,18 @@ class AIDesktopLibrary(DataDesktopLibrary):
         root_task: Task = copy.deepcopy(root_)
         ai_task: Task = ai_task_
         root_task.steps.append(ai_task)
+        # Filter the offset of the instruction
+        if self.compute_offset:
+            instruction, offset, direction = self.obtain_offset_spanish(task)
+        else:
+            instruction, offset, direction = task, 0, 'none'
+        
         # Change name of ai_task
-        ai_task.name = task
+        ai_task.name = instruction
         task_history: list[PromptStep] =  AIExampleBuilder(root_task, self.with_tasks).build_history(ai_task)
         image: str = self.last_observation.screenshot  # Image in base64
 
-        for _ in range(self.max_steps):
+        for i in range(self.max_steps):
             # Send the request to the AI in a POST request.
             list_tasks = [step.to_dict() for step in task_history]
             response = requests.post(self.ai_url, json={'image': image, 'instruction_history': list_tasks})
@@ -208,11 +323,16 @@ class AIDesktopLibrary(DataDesktopLibrary):
             response = response.json()
 
             # Parse the response
-            parser = IAToRFParser(self._library)
+            parser = IAToRFParser(self._library, offset, direction)
             action_and_args = parser.parse(response['action'])
             if action_and_args is None:
                 BuiltIn().fail(f'AI returned an invalid action: {response["action"]}')
             if 'end' in action_and_args[0].lower():
+                return
+            
+            # TODO: Review scrolls
+            if not self._continue_scrolling(i, action_and_args[0]):
+                BuiltIn().log('Stop instruction to avoid more scrolling', level='DEBUG')
                 return
             
             # Run the action

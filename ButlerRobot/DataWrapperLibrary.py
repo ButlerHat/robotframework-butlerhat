@@ -4,6 +4,7 @@ import pickle
 import dataclasses
 import inspect
 from datetime import datetime
+import re
 from typing import Optional
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
@@ -351,7 +352,7 @@ class DataWrapperLibrary:
         # Save test_task to pickle
         if not os.path.exists(self.suite_out_path):
             os.makedirs(self.suite_out_path)
-        BuiltIn().log(f"Saving test {test_task.name} to {self.suite_out_path}", console=True, level="DEBUG")
+        BuiltIn().log(f"Saving test {test_task.name} from {self._library.__class__.__name__} to {self.suite_out_path}", console=True, level="DEBUG")
         
         # Save pickle
         with open(os.path.join(self.suite_out_path, f"{name}.pickle"), "wb") as f:
@@ -569,7 +570,11 @@ class DataWrapperLibrary:
             assert step.context, f"Step {step.name} has no context. Cannot set end_observation"
             step.context.end_observation = self.last_observation
             step.context.status = attrs['status']
-            
+
+        # Remove regex '-tmp.*-' from start of the name. This is for differentiating the some keywords with the same name (Search ${text} == Search in google ${text})
+        if re.match(r'-tmp.*-', step.name):
+            step.name = re.sub(r'-tmp.*-', '', step.name).strip()
+            BuiltIn().log(f"Removing tmp from step name. New name: {step.name}", console=self.console, level="DEBUG")
         
         # Storing step
         try:

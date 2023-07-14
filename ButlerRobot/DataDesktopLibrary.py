@@ -1,13 +1,19 @@
+"""
+Data Desktop Library
+
+This module provides a library for capturing data from Desktop tests to use 
+later for training deep learning models.
+"""
 import os
 import base64
-import pyautogui
 from io import BytesIO
 from typing import Optional, Union
+import pyautogui
 from PIL import Image
 from RPA.Desktop import Desktop
+from RPA.Desktop.keywords.screen import log_image, get_output_dir, _create_unique_path,  Path
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
-from RPA.Desktop.keywords.screen import log_image, get_output_dir, _create_unique_path,  Path
 from .DataWrapperLibrary import DataWrapperLibrary
 from .src.data_types import BBox, Step
 
@@ -21,7 +27,7 @@ class DataDesktopLibrary(DataWrapperLibrary):
         This library capture data from Browser tests to use later for training deep learning models.
         """
 
-        super().__init__(Desktop(*args, **kwargs))
+        super().__init__(Desktop(*args, **kwargs), record=False)
         # To filter recorded actions
         self._library: Desktop = self._library
         # Add tags to keywords in SeleniumLibrary.keywords.element
@@ -52,8 +58,6 @@ class DataDesktopLibrary(DataWrapperLibrary):
         if 'open_application' in name.lower():
             # Set window size and maximize if needed. Execute in console xrandr 1280x720
             os.system('xrandr -s 1280x720')
-            BuiltIn().sleep(2)
-            self._library.press_keys('f11')
         # Sleep after action
         if any([keyword in name.lower().replace('_', '').replace(' ', '') for keyword in self.keywords_to_record]):
             BuiltIn().sleep(1)
@@ -110,6 +114,34 @@ class DataDesktopLibrary(DataWrapperLibrary):
         return viewport
 
     # ======== Overrided Keywords =========
+    @keyword(name='Go back')
+    def go_back(self) -> None:
+        """
+        Go back to the previous page
+        """
+        self._library.press_keys('alt', 'left')
+
+    @keyword(name='Go forward')
+    def go_forward(self) -> None:
+        """
+        Go forward to the next page
+        """
+        self._library.press_keys('alt', 'right')
+
+    @keyword(name='Maximize Window')
+    def maximize_window(self) -> None:
+        """
+        Maximize the current window
+        """
+        self._library.press_keys('f11')
+
+    @keyword(name='Minimize Window')
+    def minimize_window(self) -> None:
+        """
+        Minimize the current window
+        """
+        self._library.press_keys('f11')
+
     @keyword(name='Scroll Down')
     def scroll_down(self) -> None:
         """
@@ -120,7 +152,7 @@ class DataDesktopLibrary(DataWrapperLibrary):
     @keyword(name='Take Screenshot')
     def take_screenshot(
         self,
-        path: Optional[str] = None,
+        screen_dir: Optional[str] = None,
         embed: bool = True,
     ) -> str:
         """Take a screenshot of the whole screen, or an element
@@ -132,20 +164,22 @@ class DataDesktopLibrary(DataWrapperLibrary):
         """
         screenshot = pyautogui.screenshot()
          
-        if path is None:
+        if screen_dir is None:
             dirname = get_output_dir(default=Path.cwd())
-            path = dirname / "desktop" / "screenshots" / "desktop-screenshot-{index}.png"
+            screen_path: Path = dirname / "desktop" / "screenshots" / "desktop-screenshot-{index}.png"
+        else:
+            screen_path: Path = Path(screen_dir) / "desktop-screenshot-{index}.png"
 
-        path: Path = _create_unique_path(path).with_suffix(".png")
-        os.makedirs(path.parent, exist_ok=True)
+        screen_path: Path = _create_unique_path(screen_path).with_suffix(".png")
+        os.makedirs(screen_path.parent, exist_ok=True)
 
-        screenshot.save(path)
-        BuiltIn().log(f"Saved screenshot to {path}")
+        screenshot.save(screen_path)
+        BuiltIn().log(f"Saved screenshot to {screen_path}")
 
         if embed:
             log_image(screenshot)
 
-        return str(path)
+        return str(screen_path)
     
     @keyword(name='Click At Bbox', tags=['action'])
     def click_at_bbox(self, selector_bbox: Union[BBox, str], wait_after_click: float = 2.0):
@@ -172,3 +206,39 @@ class DataDesktopLibrary(DataWrapperLibrary):
         Record a keyboard input event. This keyword go throught WrapperLibrary middleware as PageAction.
         """
         self._library.type_text(text)
+
+    @keyword(name='Scroll Up At BBox', tags=['action'])
+    def scroll_up_at_bbox(self, selector_bbox: Union[BBox, str], clicks: int = 5, wait_after_scroll: float = 0.5):
+        assert clicks >= 0, 'Clicks must be greater than 0'
+
+        # Move mouse to the middle of the bbox
+        if isinstance(selector_bbox, str):
+            selector_bbox = BBox.from_rf_string(selector_bbox)
+        # Get the middle of the bbox
+        top_left = (selector_bbox.x, selector_bbox.y)
+        w = selector_bbox.width
+        h = selector_bbox.height
+        middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
+        coordinates = f"coordinates:{middle_coordinates[0]},{middle_coordinates[1]}"
+
+        self._library.move_mouse(coordinates)
+        pyautogui.scroll(clicks)
+        BuiltIn().sleep(wait_after_scroll)
+
+    @keyword(name='Scroll Down At BBox', tags=['action'])
+    def scroll_down_at_bbox(self, selector_bbox: Union[BBox, str], clicks: int = 5, wait_after_scroll: float = 0.5):
+        assert clicks >= 0, 'Clicks must be greater than 0'
+
+        # Move mouse to the middle of the bbox
+        if isinstance(selector_bbox, str):
+            selector_bbox = BBox.from_rf_string(selector_bbox)
+        # Get the middle of the bbox
+        top_left = (selector_bbox.x, selector_bbox.y)
+        w = selector_bbox.width
+        h = selector_bbox.height
+        middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
+        coordinates = f"coordinates:{middle_coordinates[0]},{middle_coordinates[1]}"
+
+        self._library.move_mouse(coordinates)
+        pyautogui.scroll(-clicks)
+        BuiltIn().sleep(wait_after_scroll)
