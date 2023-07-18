@@ -372,7 +372,6 @@ class DataBrowserLibrary(DataWrapperLibrary):
             self.update_scroll_observation = False
             return
 
-
         bbox: BBox | None = None
         # Check if is a locator and convert to BBox
         if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):

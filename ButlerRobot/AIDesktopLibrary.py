@@ -25,7 +25,6 @@ class IAToRFParser:
         self._library = library
         self.offset = offset
         self.direction = direction
-        pass
 
     def parse(self, action: str):
         """
@@ -54,7 +53,7 @@ class IAToRFParser:
         elif "input" in action_lower:
             # Input text in this format: 'action: Input Text "text"'
             text = action.split('"')[1].strip()
-            return ('Desktop.Type text', text)
+            return ('Desktop.Keyboard Input', text)
         elif "key" in action_lower:
             # Key in this format: 'action: Keyboard Key "key"'
             key = action_lower.split('"')[1].strip()

@@ -576,6 +576,11 @@ class DataWrapperLibrary:
             step.name = re.sub(r'-tmp.*-', '', step.name).strip()
             BuiltIn().log(f"Removing tmp from step name. New name: {step.name}", console=self.console, level="DEBUG")
         
+        # Replace bbox to BBox in the name. This is for standardizing the name of the bbox
+        if 'Bbox' in step.name:
+            step.name = step.name.replace('Bbox', 'BBox')
+            BuiltIn().log(f"Replacing bbox to BBox in step name. New name: {step.name}", console=self.console, level="DEBUG")
+            
         # Storing step
         try:
             self.exec_stack.add_to_parent(step)

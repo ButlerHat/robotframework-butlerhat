@@ -160,9 +160,9 @@ class DataRecorderInterface:
                 try:
                     bbox_element = self.library.get_boundingbox(element)
                     bbox_element = {k: int(v) for k, v in bbox_element.items()}  # Convert all elements in bbox_element into int
-                    # Look like the bbox is lightly shifted to the left. Add width to compensate
-                    bbox_element['x'] += 4
-                    bbox_element['width'] += 8
+                    # Look like the bbox is lightly shifted to the right. Add width to compensate
+                    bbox_element['x'] -= 4
+                    bbox_element['width'] += 4
 
                     # Only elements inside page. If max_scroll_elements is -2, half of the elements are not scrollable
                     if not is_valid(page_size, view_port_size, bbox_element, max_scroll_elements):
@@ -266,21 +266,21 @@ class DataRecorderInterface:
 
     @staticmethod
     def _crop_and_save(save_dir, page_screenshot, bbox_element, count, margin_xy) -> str | None:
-            """
-            Crop the element and save it in the tmp_dir.
-            """
-             # Crop bounding box in filename_screenshot
-            img = cv2.imread(page_screenshot)
-            bbox_element = {k: int(v) for k, v in bbox_element.items()}  # Convert all elements in bbox_element into int
-            crop_img = img[bbox_element['y']:bbox_element['y']+bbox_element['height'], bbox_element['x']:bbox_element['x']+bbox_element['width']]
-            # Save the cropped image
-            filename = os.path.join(save_dir, f"{count}-mX_{margin_xy[0]}-mY_{margin_xy[1]}.png")
-            try:
-                cv2.imwrite(filename, crop_img)
-            except Exception as e:
-                print(e)
-                return None
-            return filename
+        """
+        Crop the element and save it in the tmp_dir.
+        """
+            # Crop bounding box in filename_screenshot
+        img = cv2.imread(page_screenshot)
+        bbox_element = {k: int(v) for k, v in bbox_element.items()}  # Convert all elements in bbox_element into int
+        crop_img = img[bbox_element['y']:bbox_element['y']+bbox_element['height'], bbox_element['x']:bbox_element['x']+bbox_element['width']]
+        # Save the cropped image
+        filename = os.path.join(save_dir, f"{count}-mX_{margin_xy[0]}-mY_{margin_xy[1]}.png")
+        try:
+            cv2.imwrite(filename, crop_img)
+        except Exception as e:
+            print(e)
+            return None
+        return filename
 
     @staticmethod
     def _get_element_bbox(img_page: cv2.Mat, img_element: cv2.Mat, margin: tuple[int, int]) -> Optional[BBox]:
@@ -373,7 +373,7 @@ class SingleClickRecorder(DataRecorderInterface):
     """
     def __init__(self, library_instance: Browser, wait_go_to=2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
         # Clicable elements
-        button_xpath = ['//a', '//button']
+        button_xpath = ['//h3//a', '//h3[not(.//a)]']
 
         super().__init__(library_instance, button_xpath, wait_to_go=wait_go_to, max_scroll=max_scroll, max_elements=max_elements, lang_instructions=lang_instructions)
         self.wait_go_to = wait_go_to
@@ -443,7 +443,9 @@ class SingleClickRecorder(DataRecorderInterface):
             if bbox:
                 break
             # Scroll if not present
-            BuiltIn().run_keyword("Browser.Scroll Down", scroll_gap)
+            viewport_size = self.library.get_viewport_size()
+            half_viewport = viewport_size['height'] // 2
+            BuiltIn().run_keyword("Browser.Scroll Down At BBox", BBox(0, 0, viewport_size['width'], viewport_size['height']), half_viewport)
         else:
             bbox = None
 

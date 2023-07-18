@@ -33,7 +33,7 @@ class DataDesktopLibrary(DataWrapperLibrary):
         # Add tags to keywords in SeleniumLibrary.keywords.element
         self.action_tags = ['PageContent']
         self.exclude_tags = []
-        self.keywords_to_record: list[str] = ['click', 'clickwithoffset', 'movemouse', 'presskeys', 'pressmousebutton', 'releasemousebutton', 'scrolldown', 'typetext', 'typetextinto']
+        self.keywords_to_record: list[str] = ['click', 'clickwithoffset', 'movemouse', 'presskeys', 'pressmousebutton', 'releasemousebutton', 'scrolldown', 'keyboardinput', 'typetext', 'typetextinto']
         # Keyboard keywords and string argument position
         self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 0, 'typetext': 0, 'typetextinto': 1, 'presskeys': 0}
     
@@ -181,7 +181,7 @@ class DataDesktopLibrary(DataWrapperLibrary):
 
         return str(screen_path)
     
-    @keyword(name='Click At Bbox', tags=['action'])
+    @keyword(name='Click At BBox', tags=['action'])
     def click_at_bbox(self, selector_bbox: Union[BBox, str], wait_after_click: float = 2.0):
         """
         Record a click event with no xpath selector. This keyword go throught WrapperLibrary middleware as PageAction.
