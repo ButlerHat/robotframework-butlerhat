@@ -286,6 +286,24 @@ class AIDesktopLibrary(DataDesktopLibrary):
         other than scroll.
         """
         return not('scroll' in action.lower() and i > 0)
+    
+    def _remove_spanish_characters(self, instruction: str) -> str:
+        """
+        Replace spanish characters from the instruction. Including accents and ñ.
+        """
+        replacements = {
+            "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u", "ü": "u",
+            "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ü": "U",
+            "ñ": "n", "Ñ": "N"
+        }
+
+        # Use maketrans() to create a translation table
+        trans_table = str.maketrans(replacements)
+
+        # Use the translation table to replace the characters in the text
+        text = instruction.translate(trans_table)
+
+        return text
 
     @keyword('AI${mode}.${task}', tags=['task'])  # Tag for recording in data
     def ai_task(self, mode: str, task: str):
@@ -310,7 +328,8 @@ class AIDesktopLibrary(DataDesktopLibrary):
             instruction, offset, direction = task, 0, 'none'
         
         # Change name of ai_task
-        ai_task.name = instruction
+        converted_instruction = self._remove_spanish_characters(instruction)
+        ai_task.name = converted_instruction
         task_history: list[PromptStep] =  AIExampleBuilder(root_task, self.with_tasks).build_history(ai_task)
         image: str = self.last_observation.screenshot  # Image in base64
 
