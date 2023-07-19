@@ -321,15 +321,18 @@ class AIDesktopLibrary(DataDesktopLibrary):
         root_task: Task = copy.deepcopy(root_)
         ai_task: Task = ai_task_
         root_task.steps.append(ai_task)
-        # Filter the offset of the instruction
+        # TODO: Filter the offset of the instruction
+        conv_task = self._remove_spanish_characters(task)
+        if 'ir atras' in conv_task.lower() or 've atras' in conv_task.lower() or 'atras' == conv_task.lower():
+            self.go_back()
         if self.compute_offset:
             instruction, offset, direction = self.obtain_offset_spanish(task)
         else:
             instruction, offset, direction = task, 0, 'none'
         
         # Change name of ai_task
-        converted_instruction = self._remove_spanish_characters(instruction)
-        ai_task.name = converted_instruction
+        conv_task = self._remove_spanish_characters(instruction)
+        ai_task.name = conv_task
         task_history: list[PromptStep] =  AIExampleBuilder(root_task, self.with_tasks).build_history(ai_task)
         image: str = self.last_observation.screenshot  # Image in base64
 
