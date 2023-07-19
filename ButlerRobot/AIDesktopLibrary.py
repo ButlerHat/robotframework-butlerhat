@@ -325,6 +325,7 @@ class AIDesktopLibrary(DataDesktopLibrary):
         conv_task = self._remove_spanish_characters(task)
         if 'ir atras' in conv_task.lower() or 've atras' in conv_task.lower() or 'atras' == conv_task.lower():
             self.go_back()
+            return
         if self.compute_offset:
             instruction, offset, direction = self.obtain_offset_spanish(task)
         else:
