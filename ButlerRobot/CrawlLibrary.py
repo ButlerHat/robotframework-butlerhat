@@ -44,7 +44,7 @@ class CrawlLibrary:
         """
         Crawl the site and capture clicks
         """
-        self._library.crawl_site(url, "Crawl Page", int(max_number_of_page_to_crawl))
+        self._library.crawl_site(url, "CrawlLibrary.Crawl Page", int(max_number_of_page_to_crawl))
 
     def crawl_page(self):
         recorders = [SingleClickRecorder, TypeTextRecorder]
