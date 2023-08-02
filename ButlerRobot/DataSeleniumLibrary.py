@@ -159,7 +159,7 @@ class DataSeleniumLibrary(DataWrapperLibrary):
         current_action = self.exec_stack.remove_action()
 
         # Replace with Click at BBox
-        assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox'
+        assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
         try:
             BuiltIn().run_keyword('SeleniumLibrary.Click At BBox', str(current_action.action_args.bbox))
         finally:

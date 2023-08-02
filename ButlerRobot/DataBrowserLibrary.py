@@ -129,16 +129,38 @@ class DataBrowserLibrary(DataWrapperLibrary):
     def _wait_for_browser(self):
         BuiltIn().sleep(0)  # For safe recording
 
+    def _add_scroll_when_recording(self, step: PageAction) -> PageAction:
+        """
+        In this library, the scroll is added automatically in _retrieve_bbox_and_pointer_from_page.
+        This is called from DataWrapperLibrary for libraries like SeleniumLibrary and others.
+        Ignoring this function
+        """
+        return step
+    
+    def _element_is_in_viewport(self, bbox: BBox) -> bool:
+        viewport = self._get_viewport()
+        return bbox.x + bbox.width <= viewport['width'] \
+                and bbox.y + bbox.height <= viewport['height'] \
+                and bbox.x >= 0 \
+                and bbox.y >= 0
+
+
     def _get_element_bbox_from_pointer(self, x, y) -> Optional[BBox]:
         x, y = str(x), str(y)
         bbox: dict = self._library.evaluate_javascript(None, r'''() => {
                 element = document.elementFromPoint(''' + x + r''', ''' + y + r''');
+                if (!element) {
+                    return null;
+                }
                 if (element.tagName === "IFRAME") {
                     return 'iframe';
                 } else {
                     return element.getBoundingClientRect();
                 }
             }''')
+        if not bbox:
+            BuiltIn().log(f'Error getting selector pointer and bbox: {x, y}', console=self.console, level='WARN')
+            return None
         if bbox == 'iframe':
             return None
         return BBox(bbox['x'], bbox['y'], bbox['width'], bbox['height'])
@@ -150,7 +172,10 @@ class DataBrowserLibrary(DataWrapperLibrary):
             web_element = self._library.get_element(selector)
             assert web_element is not None, f'Selector {selector} not found (Web element is None)'
             bbox_ = self._library.get_boundingbox(web_element)
+            self.last_selector_error = ""
         except Exception as e:
+            # We save the error instead of failing the test. In some cases is expected to do not hace valid selector.
+            self.last_selector_error = str(e)
             BuiltIn().log(f'Error getting selector pointer and bbox: {e}', console=self.console)
             return None, None
         
@@ -182,6 +207,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
             BuiltIn().log(f'Error in _retrieve_bbox_and_pointer_from_page when trying to scroll with scrollElementIfNeeded: {additional_err}. {e}', console=self.console, level=level)
 
         if not scroll_dict:
+            if not self._element_is_in_viewport(BBox(**bbox_)):
+                BuiltIn().log(f'The element is not in the viewport. Check the element is visible. Selector: {selector}', console=self.console)
             return (
                 BBox(**bbox_),
                 (bbox_['x'] + bbox_['width'] / 2,  bbox_['y'] + bbox_['height'] / 2)
@@ -189,7 +216,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         
         if scroll_dict['is_element_scrolled']:
             bbox_ = scroll_dict['el_bbox_after_scroll']
-
+            
             # Check if is a scroll up. If is the case, update observation like anything happened.
             # AI dataset is not expected to have scroll up actions.
             if scroll_dict['is_scrolled_up']:
@@ -215,7 +242,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
             # For efficiency, don't update observation in complete_start_context
             self.no_record_next_observation = True 
 
-        
+        if not self._element_is_in_viewport(BBox(**bbox_)):
+            BuiltIn().log(f'The element is not in the viewport. Check the element is visible. Selector: {selector}', console=self.console)
+
         return (
                 BBox(**bbox_),
                 (bbox_['x'] + bbox_['width'] / 2,  bbox_['y'] + bbox_['height'] / 2)
@@ -250,7 +279,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
 
         # Replace with Click at BBox
         try:
-            assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Could be be a bad selector'
+            assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
             BuiltIn().run_keyword('Browser.Click At BBox', str(current_action.action_args.bbox))
         finally:
             # Push keyword to ignore in end_keyword
@@ -308,6 +337,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
         """
         if isinstance(selector_bbox, str):
             selector_bbox = BBox.from_rf_string(selector_bbox)
+        if not self._element_is_in_viewport(selector_bbox):
+            BuiltIn().fail(f'Failing clicking at a bounding box outside the viewport. Check previous messages in the logs. Selector: {selector_bbox}')
         # Get the middle of the bbox
         top_left = (selector_bbox.x, selector_bbox.y)
         w = selector_bbox.width
@@ -469,7 +500,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         if isinstance(selector_bbox, str) and not selector_bbox.startswith('BBox'):
             curr_step = self.exec_stack.get_last_step()
             assert isinstance(curr_step, PageAction)
-            assert curr_step.action_args.bbox, 'Error Getting element. Trying to get element bbox from stack. The PageAction has no bbox'
+            assert curr_step.action_args.bbox, 'Error Getting element. Trying to get element bbox from stack. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
             bbox = curr_step.action_args.bbox
             # Update the locator to build the dataset
             curr_step.action_args.selector_dom = str(bbox)

@@ -636,6 +636,7 @@ class DataWrapperLibrary:
         self.suite_out_path = output_path or os.path.join(os.getcwd(), "data")
         self.all_json = all_json
         self.console = console
+        self.last_selector_error: str = ""
 
         # This observation will be modified when browser opens
         self.last_observation = Observation(datetime.now(), "", "", (0, 0))
