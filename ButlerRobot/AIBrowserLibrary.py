@@ -295,6 +295,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
                 img = Image.open(io.BytesIO(base64.b64decode(elemnt_img_str)))
                 img.save(f'{self._library.outputdir}/{time.time()}.png')
 
+            # Check the text of the element to know if is the correct
             element_txt = get_all_text(self.ocr_url, elemnt_img_str)
             if not element_txt:
                 error, error_msg = True, f'{error_msg} No text found in the element. The action is: {action_and_args}'
