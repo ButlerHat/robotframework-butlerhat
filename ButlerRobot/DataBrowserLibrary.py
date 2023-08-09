@@ -4,12 +4,20 @@ import os
 import random
 from io import BytesIO
 from enum import Enum, auto
+from datetime import timedelta
 from .src.utils.ocr import get_all_text
-from typing import Optional, Union
+from typing import Optional, Union, Any
 from PIL import Image
 from Browser import Browser, KeyboardModifier, MouseButton
-from Browser.utils.data_types import MouseButtonAction, SupportedBrowsers, NewPageDetails, BoundingBox, KeyAction
-from Browser.utils.data_types import ScreenshotReturnType
+from Browser.utils.data_types import(
+    MouseButtonAction, 
+    SupportedBrowsers, 
+    NewPageDetails, 
+    BoundingBox, 
+    KeyAction, 
+    ConditionInputs, 
+    ScreenshotReturnType
+)
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 import pkg_resources
@@ -63,7 +71,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
 
         # To filter recorded actions
         self.action_tags = ['PageContent', 'ActionWrapper', 'AI']
-        self.exclude_tags = ['Wait']
+        self.exclude_tags = ['Wait', 'Getter']
 
         self.typing_kw_stringpos = {**self.typing_kw_stringpos, 'keyboardinput': 1, 'typetext': 1, 'typesecret': 1, 'keyboardkey': 0, 'presskeys': ':1'}
         
@@ -465,11 +473,22 @@ class DataBrowserLibrary(DataWrapperLibrary):
         Override Keyboard Key. Remove KeyAction from arguments.
         :param key: Key to press.
         """
-        # Due to 
-        
         self._library.keyboard_key(KeyAction.press, key)
 
-    @keyword(name='Is Text Visible', tags=['tesk', 'no_record'])
+    @keyword(name='Wait For Condition', tags=["Wait", "PageContent", "task", "no_record"])
+    def wait_for_condition(
+        self,
+        condition: ConditionInputs,
+        *args: Any,
+        timeout: Optional[timedelta] = None,
+        message: Optional[str] = None,
+    ) -> Any:
+        """
+        Override Wait For Condition to add tags.
+        """
+        return self._library.wait_for_condition(condition, *args, timeout=timeout, message=message)
+
+    @keyword(name='Is Text Visible', tags=['task', 'no_record'])
     def is_text_visible(self, text: str, selector: str | BBox | None = None) -> bool:
         """
         Check if text is visible in the page.
