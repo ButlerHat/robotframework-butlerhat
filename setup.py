@@ -13,6 +13,8 @@ package_data = {
     ],
 }
 
+# IMPORTANT
+# If the extras change, change also robotframework-dist-butlerhat
 base_requires = [
     'wheel',
     'imagehash',
