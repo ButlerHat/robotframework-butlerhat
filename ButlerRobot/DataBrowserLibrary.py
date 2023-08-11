@@ -475,18 +475,40 @@ class DataBrowserLibrary(DataWrapperLibrary):
         """
         self._library.keyboard_key(KeyAction.press, key)
 
-    @keyword(name='Wait For Condition', tags=["Wait", "PageContent", "task", "no_record"])
+    @keyword(
+            name='Wait For Condition',
+            types={
+                "condition": ConditionInputs,
+                "args": Any,
+                "timeout": Optional[timedelta],
+                "message": Optional[str],
+            },
+            tags=["Wait", "PageContent", "task", "no_record"],
+             )
     def wait_for_condition(
         self,
-        condition: ConditionInputs,
+        condition,
         *args: Any,
         timeout: Optional[timedelta] = None,
         message: Optional[str] = None,
     ) -> Any:
         """
-        Override Wait For Condition to add tags.
+        Override Wait For Condition to add tags. Types specified to avoid errors with code ofuscation.
         """
-        return self._library.wait_for_condition(condition, *args, timeout=timeout, message=message)
+        # TODO: Types on keywrod decorator is not working because the DataWrapperLibrary. Check later.
+        # It works if we add condition: ConditionInputs in args, but the ofuscation remove that part.
+        if isinstance(condition, str):
+            condition_str = condition.lower().replace(' ', '_')
+            for member in ConditionInputs:
+                if condition_str in member.value:
+                    condition_: ConditionInputs = member
+                    break
+            else:
+                raise ValueError(f'Condition {condition} not found.')
+        else:
+            condition_: ConditionInputs = condition
+        
+        return self._library.wait_for_condition(condition_, *args, timeout=timeout, message=message)
 
     @keyword(name='Is Text Visible', tags=['task', 'no_record'])
     def is_text_visible(self, text: str, selector: str | BBox | None = None) -> bool:
