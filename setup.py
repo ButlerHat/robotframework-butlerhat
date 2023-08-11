@@ -31,14 +31,14 @@ full_requires = base_requires + [
 ]
 
 browser_requires = base_requires + [
-    'robotframework>=6.1',
+    'robotframework>=5.0.1',
     'robotframework-browser>=16.0.5',
     'fastdeploy-python',  # To consult OCR
     'cryptography',  # For vault in automation
 ]
 
 selenium_requires = base_requires + [
-    'robotframework>=6.1',
+    'robotframework>=5.0.1',
     'robotframework-seleniumlibrary>=5.1.3',
     'fastdeploy-python',  # To consult OCR
     'cryptography',  # For vault in automation
