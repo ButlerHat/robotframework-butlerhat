@@ -18,6 +18,7 @@ package_data = {
 base_requires = [
     'wheel',
     'imagehash',
+    'Pillow'  # For image conversion in screenshots
 ]
 
 full_requires = base_requires + [
