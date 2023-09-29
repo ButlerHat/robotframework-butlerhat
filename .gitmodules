@@ -13,3 +13,6 @@
 [submodule "ButlerApi/chrome_plugin-butlerhat"]
 	path = ButlerApi/chrome_plugin-butlerhat
 	url = git@github.com:ButlerHat/chrome_plugin-butlerhat.git
+[submodule "ButlerRobot/robotframework-browser-stealth"]
+	path = ButlerRobot/robotframework-browser-stealth
+	url = git@github.com:ButlerHat/robotframework-browser-stealth.git

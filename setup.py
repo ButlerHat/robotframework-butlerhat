@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
+import os
 from setuptools import setup, find_packages  # type: ignore
 
 sys.path.append("ButlerRobot")
@@ -34,6 +35,14 @@ full_requires = base_requires + [
 browser_requires = base_requires + [
     'robotframework>=6.1.1',
     'robotframework-browser>=17.2.0',
+    'fastdeploy-python',  # To consult OCR
+    'cryptography',  # For vault in automation
+]
+
+# This version requires to export PIP_EXTRA_INDEX_URL https://<USER>:<PASS>@pypiserver.paipaya.com/
+browser_stealth_requires = base_requires + [
+    'robotframework>=6.1.1',
+    'robotframework-browser-stealth',
     'fastdeploy-python',  # To consult OCR
     'cryptography',  # For vault in automation
 ]
@@ -76,6 +85,7 @@ setup_kwargs = {
         "full": full_requires,
         "browser": browser_requires,
         "selenium": selenium_requires,
+        "browser_stealth": browser_stealth_requires
     },
 }
 
