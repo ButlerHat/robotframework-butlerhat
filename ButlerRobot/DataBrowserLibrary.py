@@ -2,27 +2,41 @@ import base64
 import datetime
 import os
 import random
+import requests
+from typing import Optional, Union, Any, List, Dict
 from io import BytesIO
 from enum import Enum, auto
 from datetime import timedelta
-from .src.utils.ocr import get_all_text
-from typing import Optional, Union, Any
+import urllib.request
+import zipfile
+from pathlib import Path
+import pkg_resources
 from PIL import Image
-from Browser import Browser, KeyboardModifier, MouseButton
+from Browser import Browser, MouseButton
 from Browser.utils.data_types import(
-    MouseButtonAction, 
-    SupportedBrowsers, 
-    NewPageDetails, 
-    BoundingBox, 
-    KeyAction, 
-    ConditionInputs, 
-    ScreenshotReturnType
+    MouseButtonAction,
+    SupportedBrowsers,
+    NewPageDetails,
+    BoundingBox,
+    KeyAction,
+    ConditionInputs,
+    ScreenshotReturnType,
+    Proxy,
+    ForcedColors,
+    GeoLocation,
+    HttpCredentials,
+    Permission,
+    RecordHar,
+    RecordVideo,
+    ReduceMotion,
+    ViewportDimensions,
+    ColorScheme
 )
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
-import pkg_resources
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
 from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus
+from .src.utils.ocr import get_all_text
 
 
 class TextType(Enum):
@@ -42,6 +56,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
         :param output_path: Path to save data. Default: RobotFramework output directory.
         :param all_json: Save all data in json format. This is use for debuggin purposes. Default: False.
         :param only_actions: Save only actions with tag PageAction. Default: True.
+        :param record: Record data. Default: True.
+        :param console: Show logs in console. Default: True.
+        :param stealth_mode: Run browser in stealth mode. Default: False.
         """
         # Arguments of the library are only evaluated in execution time. There are two ways to handle this:
         # 1. Add "ButlerRobot.DataBrowser" in "robot.libraries.libdoc.needsArgs" setting to add the arguments in the documentation.
@@ -50,9 +67,11 @@ class DataBrowserLibrary(DataWrapperLibrary):
 
         # Check if robotframework is running
         is_running = False
+        api_key_variables = None
         try:
             BuiltIn()._get_context()
             is_running = True
+            api_key_variables = BuiltIn().get_variable_value('${CAPTCHA_API_KEY}', default=None)
         except:
             pass
         if is_running:
@@ -65,6 +84,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
         output_path = kwargs.pop('output_path', None)
         record = kwargs.pop('record', True)
         console = kwargs.pop('console', True)
+        self.stealth_mode = kwargs.pop('stealth_mode', False)
+        self.captcha_api_key = kwargs.pop('captcha_api_key', api_key_variables)
 
         super().__init__(Browser(*args, **kwargs), output_path=output_path, record=record, console=console)
         self._library: Browser = self._library
@@ -90,7 +111,46 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self.observation_before_scroll = None
         self.update_scroll_observation = False
 
-    
+    # ======= Stealth Mode =======
+    def _is_stealth_mode(self, package_name):
+        """
+        Check if stealth mode is installed.
+        """
+        try:
+            pkg_resources.get_distribution(package_name)
+            return True
+        except pkg_resources.DistributionNotFound:
+            return False
+       
+    def _download_plugin(self, dir_path):
+        """
+        Download the chrome plugin for stealth mode one time. Place into ./plugin folder in this file directory.
+        :param download_path: Path to download the plugin.
+        """
+        download_dir = os.path.dirname(dir_path)
+        if not os.path.exists(download_dir):
+            os.makedirs(download_dir)
+                
+        url = 'https://antcpt.com/anticaptcha-plugin.zip'
+        # Download plugin
+        filehandle, _ = urllib.request.urlretrieve(url)
+        # Unizp
+        with zipfile.ZipFile(filehandle, "r") as f:
+            f.extractall(dir_path)
+
+    def _configure_plugin(self, api_key: str, download_path: str):
+        """
+        Configure the plugin with the api key.
+        :param api_key: API_KEY_32_BYTES key to configure the plugin.
+        """
+        # establece la clave API en configuración
+        file = Path(os.sep.join([download_path, 'js', 'config_ac_api_key.js']))
+        file.write_text(
+            file.read_text(encoding='utf8').replace(
+                "antiCapthaPredefinedApiKey = ''", 
+                f"antiCapthaPredefinedApiKey = '{api_key}'")
+        , encoding='utf8')
+
     # ======= Overrides =======
     def _scroll_to_top(self):
         self._library.scroll_by(selector=None, vertical='-100%')
@@ -157,6 +217,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         x, y = str(x), str(y)
         bbox: dict = self._library.evaluate_javascript(None, r'''() => {
                 element = document.elementFromPoint(''' + x + r''', ''' + y + r''');
+                console.log(element);
                 if (!element) {
                     return null;
                 }
@@ -195,12 +256,6 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self.last_observation = observation
         self.observation_before_scroll = self.last_observation
         
-        # Scroll up if needed
-        if bbox_['y'] < 0:
-            # Go to the top of the page
-            self._scroll_to_top()
-            self._update_observation_and_set_in_parents()
-
         scroll_dict = None
         additional_err = ""
         try:
@@ -225,16 +280,14 @@ class DataBrowserLibrary(DataWrapperLibrary):
         if scroll_dict['is_element_scrolled']:
             bbox_ = scroll_dict['el_bbox_after_scroll']
             
-            # Check if is a scroll up. If is the case, update observation like anything happened.
-            # AI dataset is not expected to have scroll up actions.
-            if scroll_dict['is_scrolled_up']:
-                self._update_observation_and_set_in_parents()
-            
             self.update_scroll_observation = True
             # Check if is a scroll in bounding box or scroll in page
             if scroll_dict['is_parent_scrolled']:
                # The start observation will be modified inside the keyword.
-               BuiltIn().run_keyword('Browser.Scroll Down')
+                if scroll_dict['is_scrolled_up']:
+                    BuiltIn().run_keyword('Browser.Scroll Up')
+                else:
+                    BuiltIn().run_keyword('Browser.Scroll Down')
 
             else:
                 # The scroll is done in a scrollable object.
@@ -243,7 +296,10 @@ class DataBrowserLibrary(DataWrapperLibrary):
                 fix_selector = self.fix_bbox
                 self.fix_bbox = False
                 try:
-                    BuiltIn().run_keyword('Browser.Scroll Down At BBox', bbox_arg)
+                    if scroll_dict['is_scrolled_up']:
+                        BuiltIn().run_keyword('Browser.Scroll Up At BBox', bbox_arg)
+                    else:
+                        BuiltIn().run_keyword('Browser.Scroll Down At BBox', bbox_arg)
                 finally:
                     self.fix_bbox = fix_selector  # In try to support keywords like "Run Keyword And Ignore Error"
         else:
@@ -295,6 +351,160 @@ class DataBrowserLibrary(DataWrapperLibrary):
             self.exec_stack.push(current_action)
 
     # ======== Keywords =========
+    @keyword(name="New Stealth Persistent Context", tags=("Setter", "BrowserControl"))
+    def new_stealth_persistent_context(
+        self,
+        userDataDir: str = "",  # TODO: change to PurePath
+        browser: SupportedBrowsers = SupportedBrowsers.chromium,
+        headless: bool = True,
+        *,
+        acceptDownloads: bool = True,
+        args: Optional[List[str]] = None,
+        bypassCSP: bool = False,
+        channel: Optional[str] = None,
+        colorScheme: Optional[ColorScheme] = None,
+        defaultBrowserType: Optional[SupportedBrowsers] = None,
+        deviceScaleFactor: Optional[float] = None,
+        devtools: bool = False,
+        downloadsPath: Optional[str] = None,
+        env: Optional[Dict] = None,
+        executablePath: Optional[str] = None,
+        extraHTTPHeaders: Optional[Dict[str, str]] = None,
+        forcedColors: ForcedColors = ForcedColors.none,
+        geolocation: Optional[GeoLocation] = None,
+        handleSIGHUP: bool = True,
+        handleSIGINT: bool = True,
+        handleSIGTERM: bool = True,
+        hasTouch: Optional[bool] = None,
+        httpCredentials: Optional[HttpCredentials] = None,
+        ignoreDefaultArgs: Union[List[str], bool, None] = None,
+        ignoreHTTPSErrors: bool = False,
+        isMobile: Optional[bool] = None,
+        javaScriptEnabled: bool = True,
+        locale: Optional[str] = None,
+        offline: bool = False,
+        permissions: Optional[List[Permission]] = None,
+        proxy: Optional[Proxy] = None,
+        recordHar: Optional[RecordHar] = None,
+        recordVideo: Optional[RecordVideo] = None,
+        reducedMotion: ReduceMotion = ReduceMotion.no_preference,
+        screen: Optional[Dict[str, int]] = None,
+        slowMo: timedelta = timedelta(seconds=0),
+        timeout: timedelta = timedelta(seconds=30),
+        timezoneId: Optional[str] = None,
+        tracing: Optional[str] = None,
+        url: Optional[str] = None,
+        userAgent: Optional[str] = None,
+        viewport: Optional[ViewportDimensions] = ViewportDimensions(
+            width=1280, height=720
+        )
+    ):
+        """Open a new
+        [https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context | persistent context].
+
+        `New Persistent Context` does basically executes `New Browser`, `New Context` and `New Page` in one step with setting a profile at the same time.
+
+        This keyword returns a tuple of browser id, context id and page details. (New in Browser 15.0.0)
+
+        | =Argument=               | =Description= |
+        | ``userDataDir``          | Path to a User Data Directory, which stores browser session data like cookies and local storage. More details for Chromium and Firefox. Note that Chromium's user data directory is the parent directory of the "Profile Path" seen at chrome://version. Pass an empty string to use a temporary directory instead. |
+        | ``browser``              | Browser type to use. Default is Chromium. |
+        | ``headless``             | Whether to run browser in headless mode. Defaults to ``True``. |
+        | ``storageState`` & ``hideRfBrowser`` | These arguments have no function and will be removed soon. |
+        | other arguments          | Please see `New Browser`, `New Context` and `New Page` for more information about the other arguments. |
+
+        If you want to use extensions you need to download the extension as a .zip, enable loading the extension, and load the extensions using chromium arguments like below. Extensions only work with chromium and with a headful browser.
+
+        | ${launch_args}=  Set Variable  ["--disable-extensions-except=./ublock/uBlock0.chromium", "--load-extension=./ublock/uBlock0.chromium"]
+        | ${browserId}  ${contextId}  ${pageDetails}=  `New Persistent Context`  browser=chromium  headless=False  url=https://robocon,io  args=${launch_args}
+
+        Check `New Browser`, `New Context` and `New Page` for the specific argument docs.
+
+        [https://forum.robotframework.org/t//4309|Comment >>]
+        """
+        if not userDataDir:
+            output_dir = BuiltIn().get_variable_value('${OUTPUT_DIR}')
+            userDataDir = os.sep.join([output_dir, 'browser', 'user_data_dir'])
+
+        if not self._is_stealth_mode("robotframework-browser-stealth"):
+            BuiltIn().fail('Error at DataBrowserLibrary. Stealth mode is not installed. Please install robotframework-browser-stealth library.')
+
+        plugins = []
+        curr_dir = os.path.dirname(os.path.realpath(__file__))
+        plugin_download_path = os.sep.join([curr_dir, '.cache', 'plugin'])
+        plugin_path = os.sep.join([curr_dir, '.cache', 'plugin_configured.zip'])
+        # Download plugin
+        if self.captcha_api_key:
+            if not os.path.exists(plugin_path):
+                BuiltIn().log('Stealth mode is enabled. Downloading captcha plugin.', console=self.console, level='DEBUG')
+                self._download_plugin(plugin_download_path)
+                self._configure_plugin(self.captcha_api_key, plugin_download_path)
+            plugins.append(plugin_download_path)
+        else:
+            BuiltIn().log('Stealth mode is enabled. CAPTCHA_API_KEY is not set. Plugin will not be configured.', console=self.console, level='DEBUG')
+
+        if headless:
+            BuiltIn().log('Stealth mode is enabled. Headless mode is disabled.', console=self.console, level='WARN')
+        headless = False
+    
+        if ignoreDefaultArgs is not None:
+            BuiltIn().log('Stealth mode is enabled. ignoreDefaultArgs is disabled.', console=self.console, level='WARN')
+        ignoreDefaultArgs = [
+            "--disable-extensions",
+            "--enable-automation"
+        ]
+
+        assert os.path.exists(plugin_path), f'Error at New Stealth Browser. Plugin not found at {plugin_path}'
+        if args is not None:
+            BuiltIn().log('Stealth mode is enabled. args is disabled.', console=self.console, level='WARN')
+        args = [
+            f'--disable-extensions-except={",".join(plugins)}',
+            f'--load-extension={",".join(plugins)}'
+        ]
+        self._library.new_persistent_context(
+            userDataDir=userDataDir,
+            browser=browser,
+            headless=headless,
+            acceptDownloads=acceptDownloads,
+            args=args,
+            bypassCSP=bypassCSP,
+            channel=channel,
+            colorScheme=colorScheme,
+            defaultBrowserType=defaultBrowserType,
+            deviceScaleFactor=deviceScaleFactor,
+            devtools=devtools,
+            downloadsPath=downloadsPath,
+            env=env,
+            executablePath=executablePath,
+            extraHTTPHeaders=extraHTTPHeaders,
+            forcedColors=forcedColors,
+            geolocation=geolocation,
+            handleSIGHUP=handleSIGHUP,
+            handleSIGINT=handleSIGINT,
+            handleSIGTERM=handleSIGTERM,
+            hasTouch=hasTouch,
+            httpCredentials=httpCredentials,
+            ignoreDefaultArgs=ignoreDefaultArgs,
+            ignoreHTTPSErrors=ignoreHTTPSErrors,
+            isMobile=isMobile,
+            javaScriptEnabled=javaScriptEnabled,
+            locale=locale,
+            offline=offline,
+            permissions=permissions,
+            proxy=proxy,
+            recordHar=recordHar,
+            recordVideo=recordVideo,
+            reducedMotion=reducedMotion,
+            screen=screen,
+            slowMo=slowMo,
+            timeout=timeout,
+            timezoneId=timezoneId,
+            tracing=tracing,
+            url=url,
+            userAgent=userAgent,
+            viewport=viewport
+        )
+
     @keyword(name="Open Browser", tags=("Setter", "BrowserControl"))
     def open_browser(
         self,
@@ -328,7 +538,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         return return_val
         
     @keyword(name='Click', tags=['action', 'PageContent'])
-    def click(self, selector: str, button: MouseButton = MouseButton.left, clickCount: int = 1, delay: Optional[datetime.timedelta] = None, position_x: Optional[float] = None, position_y: Optional[float] = None, force: bool = False, noWaitAfter: bool = False, *modifiers: KeyboardModifier):
+    def click(self, selector: str, button: MouseButton = MouseButton.left):
         """
         Override Click Button. Convert this keyword to a Click at BBox.
         Param locator: Selector of the button.
@@ -336,7 +546,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         if self.exec_stack:
             self._replace_keyword_click()
         else:
-            self._library.click(selector, button, clickCount, delay, position_x, position_y, force, noWaitAfter, *modifiers)
+            self._library.click(selector, button)
 
 
     def click_at_bbox(self, selector_bbox: Union[BBox, str], wait_after_click: float = 2.0):
@@ -396,6 +606,48 @@ class DataBrowserLibrary(DataWrapperLibrary):
         else:
             pixels = random.randint(0, height//2)
             self.scroll_down(pixels)
+
+    @keyword(name="Scroll Up", tags=("action", "PageContent"))
+    def scroll_up(self, pixels_selector: Union[int, str, None] = None, seed: int = -1):
+        """
+        Scroll up the page.
+        Param pixels: Number of pixels to scroll up.
+        """
+        # Check the case of is scrolled by the library itself
+        if self.update_scroll_observation:
+            assert self.observation_before_scroll, 'Error at Scroll Up. Trying to scroll up without an observation before.'
+            curr_step = self.exec_stack.get_last_step()
+            self._update_observation_and_set_in_parents(self.observation_before_scroll)
+            assert curr_step.context is not None, 'Error at Scroll Up. Trying to scroll up without an observation before.'
+            curr_step.context.start_observation = self.observation_before_scroll
+            self.update_scroll_observation = False
+            return
+        
+        # Run Scroll with pixels. If is an int or starts with a number
+        if isinstance(pixels_selector, int) or (isinstance(pixels_selector, str) and pixels_selector[0].isdigit()):
+            self._library.scroll_by(vertical=f'-{pixels_selector}')
+            return
+        
+        if seed == -1:
+            seed = BuiltIn().get_variable_value('${SEED}', random.randint(0, 100))
+        random.seed(seed)
+        height = self._library.get_viewport_size()['height']
+
+        # Try with locator
+        if pixels_selector:
+            bbox, _ = self._get_bbox_and_pointer(pixels_selector)
+            if bbox:
+                pixels = bbox.y + random.randint(0, height//8)
+                self.scroll_up(pixels)
+                return
+            else:
+                BuiltIn().fail(f'Error at Scroll Up. Selector {pixels_selector} not found or does not have bbox.')
+        
+        # Scroll up a random number of pixels
+        else:
+            pixels = random.randint(0, height//2)
+            self.scroll_up(pixels)
+        
         
     @keyword(name='Scroll Down At BBox', tags=['action', 'ActionWrapper'])
     def scroll_at_bbox(self, selector_bbox: BBox | str, offset: int = 100):
