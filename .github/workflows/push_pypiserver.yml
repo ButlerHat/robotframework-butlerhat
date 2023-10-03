@@ -1,0 +1,41 @@
+name: Push to PypiServer
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: omen-ubuntu
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.10.11
+
+    - name: Ofuscate phthon
+      run: |
+        pip install python-minifier
+        pyminify ButlerRobot/ --in-place
+
+    - name: Build Python package
+      run: python setup.py sdist
+
+    - name: Install Twine
+      run: |
+        python -m pip install twine
+        
+    - name: Upload Package to PyPI Server
+      env:
+        TWINE_USERNAME: ${{ secrets.TWINE_USERNAME }}
+        TWINE_PASSWORD: ${{ secrets.TWINE_PASSWORD }}
+      run: |
+        python -m twine upload --repository-url ${{ secrets.PYPISERVER }} dist/*.tar.gz
+

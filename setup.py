@@ -55,7 +55,7 @@ selenium_requires = base_requires + [
 ]
 
 
-packages = find_packages(exclude=["test", "TestSuites", "ButlerApi"])
+packages = find_packages(exclude=["test", "TestSuites", "ButlerApi", "robotframework-browser-stealth"])
 
 setup_kwargs = {
     "name": "robotframework-butlerhat",
