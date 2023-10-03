@@ -435,7 +435,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         plugin_path = os.sep.join([curr_dir, '.cache', 'plugin_configured.zip'])
         # Download plugin
         if self.captcha_api_key:
-            if not os.path.exists(plugin_path):
+            if not os.path.exists(plugin_download_path):
                 BuiltIn().log('Stealth mode is enabled. Downloading captcha plugin.', console=self.console, level='DEBUG')
                 self._download_plugin(plugin_download_path)
                 self._configure_plugin(self.captcha_api_key, plugin_download_path)
@@ -454,7 +454,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
             "--enable-automation"
         ]
 
-        assert os.path.exists(plugin_path), f'Error at New Stealth Browser. Plugin not found at {plugin_path}'
+        assert os.path.exists(plugin_download_path), f'Error at New Stealth Browser. Plugin not found at {plugin_path}'
         if args is not None:
             BuiltIn().log('Stealth mode is enabled. args is disabled.', console=self.console, level='WARN')
         args = [
