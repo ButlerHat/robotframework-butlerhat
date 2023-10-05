@@ -2,7 +2,7 @@ import base64
 import datetime
 import os
 import random
-import requests
+import json
 from typing import Optional, Union, Any, List, Dict
 from io import BytesIO
 from enum import Enum, auto
@@ -71,7 +71,8 @@ class DataBrowserLibrary(DataWrapperLibrary):
         try:
             BuiltIn()._get_context()
             is_running = True
-            api_key_variables = BuiltIn().get_variable_value('${CAPTCHA_API_KEY}', default=None)
+            api_key_variables = os.environ.get('CAPTCHA_API_KEY', None)
+            api_key_variables = BuiltIn().get_variable_value('${CAPTCHA_API_KEY}', default=api_key_variables)
         except:
             pass
         if is_running:
@@ -237,15 +238,31 @@ class DataBrowserLibrary(DataWrapperLibrary):
     def _retrieve_bbox_and_pointer_from_page(self, selector) -> tuple[None, None] | tuple[BBox, tuple]:
         # Here in browser libray, this function is going to make the element visible. If there is
         # a scroll, it will be added to the stack.
+        
+        # Get element
         try:
             web_element = self._library.get_element(selector)
-            assert web_element is not None, f'Selector {selector} not found (Web element is None)'
+        except AssertionError as exception:
+            BuiltIn().log(f'Element {selector} not found: {exception}', console=True)
+            self.last_selector_error = str(exception)
+            return None, None
+        except Exception as exception:
+            BuiltIn().log(f'Error getting element {selector}: {exception}', console=self.console)
+            self.last_selector_error = str(exception)
+            return None, None
+        
+        # Get element bbox
+        try:
             bbox_ = self._library.get_boundingbox(web_element)
             self.last_selector_error = ""
-        except Exception as e:
+        except TypeError as exception:
+            self.last_selector_error = str(exception)
+            BuiltIn().log(f'Element {selector} found, but fails to get bounding box. Element may be inestable, try adding `Wait For Element State` before Exception: {exception}', console=True, level='WARN')
+            return None, None
+        except Exception as exception:
             # We save the error instead of failing the test. In some cases is expected to do not hace valid selector.
-            self.last_selector_error = str(e)
-            BuiltIn().log(f'Error getting selector pointer and bbox: {e}', console=self.console)
+            self.last_selector_error = str(exception)
+            BuiltIn().log(f'Error getting selector pointer and bbox: {exception}', console=self.console)
             return None, None
         
         # Get observation before scroll and after getting element
@@ -444,7 +461,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
             BuiltIn().log('Stealth mode is enabled. CAPTCHA_API_KEY is not set. Plugin will not be configured.', console=self.console, level='DEBUG')
 
         if headless:
-            BuiltIn().log('Stealth mode is enabled. Headless mode is disabled.', console=self.console, level='WARN')
+            BuiltIn().log('Stealth mode is enabled. Headless mode is disabled.', console=self.console, level='DEBUG')
         headless = False
     
         if ignoreDefaultArgs is not None:
@@ -536,6 +553,20 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self._library.wait_until_network_is_idle()
         BuiltIn().sleep(wait)
         return return_val
+    
+    @keyword(name="Add All Cookies From State")
+    def add_all_cookies_from_state(self, state_json_paht: str):
+        """
+        Add all cookies from json file state.
+        """
+        # Read json file
+        with open(state_json_paht, 'r', encoding='utf8') as f:
+            state = f.read()
+        state = json.loads(state)
+        # Add cookies
+        for cookie in state['cookies']:
+            self._library.add_cookie(**cookie)
+
         
     @keyword(name='Click', tags=['action', 'PageContent'])
     def click(self, selector: str, button: MouseButton = MouseButton.left):
