@@ -460,6 +460,11 @@ class DataBrowserLibrary(DataWrapperLibrary):
         else:
             BuiltIn().log('Stealth mode is enabled. CAPTCHA_API_KEY is not set. Plugin will not be configured.', console=self.console, level='DEBUG')
 
+        # Cookies plugin
+        cookies_plugin_path = os.sep.join([curr_dir, '..', 'chrome_plugin_cookies-butlerhat'])
+        if os.path.exists(cookies_plugin_path):
+            plugins.append(cookies_plugin_path)
+
         if headless:
             BuiltIn().log('Stealth mode is enabled. Headless mode is disabled.', console=self.console, level='DEBUG')
         headless = False
@@ -471,7 +476,6 @@ class DataBrowserLibrary(DataWrapperLibrary):
             "--enable-automation"
         ]
 
-        assert os.path.exists(plugin_download_path), f'Error at New Stealth Browser. Plugin not found at {plugin_path}'
         if args is not None:
             BuiltIn().log('Stealth mode is enabled. args is disabled.', console=self.console, level='WARN')
         args = [
