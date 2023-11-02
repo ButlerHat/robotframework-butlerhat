@@ -19,3 +19,6 @@
 [submodule "chrome_plugin_cookies-butlerhat"]
 	path = chrome_plugin_cookies-butlerhat
 	url = git@github.com:ButlerHat/chrome_plugin_cookies-butlerhat.git
+[submodule "TestSuites/KitDigital"]
+	path = TestSuites/KitDigital
+	url = git@github.com:ButlerHat/KitDigital.git

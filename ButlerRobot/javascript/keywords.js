@@ -402,10 +402,10 @@ async function getElementBboxHighlighted(page) {
 
     logger("Element bbox before scroll: " + JSON.stringify({x: bbox_before.x, y: bbox_before.y, width: bbox_before.width, height: bbox_before.height}));
     logger("Parent bbox before scroll: " + JSON.stringify({x: bbox_parent_before.x, y: bbox_parent_before.y, width: bbox_parent_before.width, height: bbox_parent_before.height}));
-    logger("Returned parent bbox: " + JSON.stringify({x: frame_bbox.x, y: frame_bbox.y, width: frame_bbox.width, height: frame_bbox.height}));
+    logger("Iframe bbox: " + JSON.stringify({x: frame_bbox.x, y: frame_bbox.y, width: frame_bbox.width, height: frame_bbox.height}));
   
     // ==== Scroll element if needed. ====
-    await element.scrollIntoViewIfNeeded();
+    await element.scrollIntoViewIfNeeded(true);
   
     // Check if element has been scrolled
     const bbox_after = await element.boundingBox();

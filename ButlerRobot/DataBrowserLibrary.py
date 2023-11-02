@@ -35,7 +35,7 @@ from Browser.utils.data_types import(
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 from ButlerRobot.DataWrapperLibrary import DataWrapperLibrary
-from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus
+from ButlerRobot.src.data_types import BBox, Observation, PageAction, SaveStatus, Step
 from .src.utils.ocr import get_all_text
 
 
@@ -351,17 +351,20 @@ class DataBrowserLibrary(DataWrapperLibrary):
             current_action.status = SaveStatus.no_record
             self.exec_stack.push(current_action)
 
-    def _replace_keyword_click(self):
+    def _replace_keyword_click(self, selector, button):
         """
-        Override Click Element. Convert this keyword to a Click at BBox.
+        Override Click Element. Convert this keyword to a Click at BBox. If Keyword fails, run click, but no record.
         Param locator: Selector of the element to click.
         """
         current_action = self.exec_stack.remove_action()
 
         # Replace with Click at BBox
         try:
-            assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
-            BuiltIn().run_keyword('Browser.Click At BBox', str(current_action.action_args.bbox))
+            # assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
+            status, msg = BuiltIn().run_keyword_and_ignore_error('Browser.Click At BBox', str(current_action.action_args.bbox))
+            if status == 'FAIL':
+                BuiltIn().log(f'Error clicking at bbox. Step will not be recorded. {msg}', console=self.console, level='WARN')
+                self._library.click(selector, button)
         finally:
             # Push keyword to ignore in end_keyword
             current_action.status = SaveStatus.no_record
@@ -579,7 +582,9 @@ class DataBrowserLibrary(DataWrapperLibrary):
         Param locator: Selector of the button.
         """
         if self.exec_stack:
-            self._replace_keyword_click()
+            last_step: Step = self.exec_stack.get_last_step()
+            if isinstance(last_step, PageAction) and last_step.action_args.bbox:
+                self._replace_keyword_click(selector, button)
         else:
             self._library.click(selector, button)
 
