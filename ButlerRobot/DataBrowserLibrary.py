@@ -361,7 +361,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         # Replace with Click at BBox
         try:
             # assert current_action.action_args.bbox, 'Trying to click element. The PageAction has no bbox. Last error was: \n' + str(self.last_selector_error)
-            status, msg = BuiltIn().run_keyword_and_ignore_error('Browser.Click At BBox', str(current_action.action_args.bbox))
+            status, msg = BuiltIn().run_keyword_and_ignore_error('Browser.Click At BBox', str(current_action.action_args.bbox), True)
             if status == 'FAIL':
                 BuiltIn().log(f'Error clicking at bbox. Step will not be recorded. {msg}', console=self.console, level='WARN')
                 self._library.click(selector, button)
@@ -585,13 +585,16 @@ class DataBrowserLibrary(DataWrapperLibrary):
             last_step: Step = self.exec_stack.get_last_step()
             if isinstance(last_step, PageAction) and last_step.action_args.bbox:
                 self._replace_keyword_click(selector, button)
-        else:
-            self._library.click(selector, button)
+        
+        # Click with locator. The click with bbox will be fake.
+        self._library.click(selector, button)
 
 
-    def click_at_bbox(self, selector_bbox: Union[BBox, str], wait_after_click: float = 2.0):
+    def click_at_bbox(self, selector_bbox: Union[BBox, str], no_click: bool = False):
         """
         Record a click event with no xpath selector. This keyword go throught WrapperLibrary middleware as PageAction.
+        param selector_bbox: BBox of the element to click.
+        param no_click: If True, only record the event, but not click.
         """
         if isinstance(selector_bbox, str):
             selector_bbox = BBox.from_rf_string(selector_bbox)
@@ -603,7 +606,10 @@ class DataBrowserLibrary(DataWrapperLibrary):
         h = selector_bbox.height
         middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
         
-        self._library.mouse_button(MouseButtonAction.click, middle_coordinates[0], middle_coordinates[1])
+        if not no_click:
+            self._library.mouse_button(MouseButtonAction.click, middle_coordinates[0], middle_coordinates[1])
+        else:
+            self._library.mouse_move(middle_coordinates[0], middle_coordinates[1])
 
     @keyword(name="Scroll Down", tags=("action", "PageContent"))
     def scroll_down(self, pixels_selector: Union[int, str, None] = None, seed: int = -1):
