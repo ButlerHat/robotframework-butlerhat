@@ -36,28 +36,52 @@ class KubernetesManager:
         self.cloudflare_manifest_path = os.path.join(manifest_dir, "cloudflare_deployment.yml")
 
     def _create_deployment(self, deployment_manifest: dict):
-        # Crea un nuevo deployment en Kubernetes
+        """
+        This method creates a new deployment in Kubernetes using the provided deployment manifest.
+
+        Args:
+            deployment_manifest (dict): The deployment manifest as a dictionary.
+
+        Raises:
+            ApiException: If there is an error from the Kubernetes API.
+        """
         try:
             self.apps_v1_api.create_namespaced_deployment(
                 namespace=self.namespace, body=deployment_manifest)
         except ApiException as e:
-            # Manejar excepciones de manera adecuada
             print(f"Exception when calling AppsV1Api->create_namespaced_deployment: {e}")
 
     def _create_service(self, service_manifest: dict):
-        # Crea un nuevo servicio en Kubernetes
+        """
+        This method creates a new service in Kubernetes using the provided service manifest.
+
+        Args:
+            service_manifest (dict): The service manifest as a dictionary.
+
+        Raises:
+            ApiException: If there is an error from the Kubernetes API.
+        """
         try:
             self.core_v1_api.create_namespaced_service(
                 namespace=self.namespace, body=service_manifest)
         except ApiException as e:
-            # Manejar excepciones de manera adecuada
             print(f"Exception when calling CoreV1Api->create_namespaced_service: {e}")
 
     def _delete_deployment(self, name: str, namespace: str | None = None):
+        """
+        Deletes a deployment with the given name in the specified namespace.
+
+        Args:
+            name (str): The name of the deployment to delete.
+            namespace (str, optional): The namespace in which the deployment is located. Defaults to None.
+
+        Raises:
+            ApiException: If there was an error deleting the deployment.
+
+        """
         if namespace is None:
             namespace = self.namespace
 
-        # Elimina un deployment existente
         try:
             self.apps_v1_api.delete_namespaced_deployment(
                 name=name, namespace=namespace)
@@ -65,10 +89,16 @@ class KubernetesManager:
             print(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
 
     def _delete_service(self, name: str, namespace: str | None = None):
+        """
+        Deletes an existing Kubernetes service.
+
+        Args:
+            name (str): The name of the service to delete.
+            namespace (str, optional): The namespace of the service. Defaults to None.
+        """
         if namespace is None:
             namespace = self.namespace
 
-        # Elimina un servicio existente
         try:
             self.core_v1_api.delete_namespaced_service(
                 name=name, namespace=namespace)
@@ -76,6 +106,15 @@ class KubernetesManager:
             print(f"Exception when calling CoreV1Api->delete_namespaced_service: {e}")
 
     def _add_ingress_rule(self, instance_id: str):
+        """
+        This method adds new ingress rules for the specified chrome in Kubernetes. It assumes that the ingress already exists.
+
+        Args:
+            instance_id (str): The ID of the instance for which the ingress rules are to be added.
+
+        Raises:
+            ApiException: If there is an error from the Kubernetes API.
+        """
         service_name = self.service_name.format(instance_id=instance_id)
 
         # Carga el Ingress existente
@@ -139,6 +178,15 @@ class KubernetesManager:
             print(f"Exception when calling NetworkingV1Api->replace_namespaced_ingress: {e}")
 
     def _delete_ingress_rule(self, instance_id: str):
+        """
+        This method deletes ingress rules for the specified instance in Kubernetes.
+
+        Args:
+            instance_id (str): The ID of the instance for which the ingress rules are to be deleted.
+
+        Raises:
+            ApiException: If there is an error from the Kubernetes API.
+        """
         # Carga el Ingress existente
         try:
             ingress = self.networking_v1_api.read_namespaced_ingress(self.ingress_name, self.namespace)
@@ -224,6 +272,16 @@ class KubernetesManager:
             print(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
     
     def wait_for_deployment_ready(self, instance_id: str, timeout: int = 300) -> bool:
+        """
+        Waits for a Kubernetes deployment to be ready.
+
+        Args:
+            instance_id (str): The ID of the deployment instance.
+            timeout (int, optional): The maximum time to wait for the deployment to be ready, in seconds. Defaults to 300.
+
+        Returns:
+            bool: True if the deployment is ready, False otherwise.
+        """
         deployment_name = self.deployment_name.format(instance_id=instance_id)
         start_time = time.time()
 
@@ -246,6 +304,15 @@ class KubernetesManager:
         return False
     
     def wait_for_ingress_ready(self, timeout: int = 300) -> bool:
+        """
+        Waits for the ingress to be ready for the specified amount of time.
+
+        Args:
+            timeout (int): The maximum amount of time to wait for the ingress to be ready, in seconds.
+
+        Returns:
+            bool: True if the ingress is ready within the specified timeout, False otherwise.
+        """
         start_time = time.time()
 
         while time.time() - start_time < timeout:
@@ -268,6 +335,15 @@ class KubernetesManager:
         return False
 
     def is_browser_running(self, instance_id: str):
+        """
+        Checks if the browser deployment and service are running for the given instance ID.
+
+        Args:
+            instance_id (str): The ID of the instance to check.
+
+        Returns:
+            bool: True if the deployment and service are running, False otherwise.
+        """
         deployment_name = self.deployment_name.format(instance_id=instance_id)
         service_name = self.service_name.format(instance_id=instance_id)
 
@@ -296,6 +372,18 @@ class KubernetesManager:
         return True
 
     def deploy_chrome_browser(self, instance_id: str) -> tuple[dict, dict]:
+        """
+        This method deploys a Chrome browser in Kubernetes for the specified instance.
+
+        Args:
+            instance_id (str): The ID of the instance for which the Chrome browser is to be deployed.
+
+        Returns:
+            tuple[dict, dict]: The deployment and service manifests as dictionaries.
+
+        Raises:
+            ApiException: If there is an error from the Kubernetes API.
+        """
         deployment_name = self.deployment_name.format(instance_id=instance_id)
         service_name = self.service_name.format(instance_id=instance_id)
 
@@ -351,12 +439,18 @@ class KubernetesManager:
         return deployment_manifest, service_manifest
     
     def delete_chrome_browser(self, instance_id: str):
-        deployment_name = self.deployment_name.format(instance_id=instance_id)
-        service_name = self.service_name.format(instance_id=instance_id)
+            """
+            Deletes the deployment, service, and ingress rule for the Chrome browser instance with the given ID.
 
-        self._delete_deployment(deployment_name)
-        self._delete_service(service_name)
-        self._delete_ingress_rule(instance_id)
+            Args:
+                instance_id (str): The ID of the Chrome browser instance to delete.
+            """
+            deployment_name = self.deployment_name.format(instance_id=instance_id)
+            service_name = self.service_name.format(instance_id=instance_id)
+
+            self._delete_deployment(deployment_name)
+            self._delete_service(service_name)
+            self._delete_ingress_rule(instance_id)
 
 if __name__ == '__main__':
     k8s_manager = KubernetesManager()
