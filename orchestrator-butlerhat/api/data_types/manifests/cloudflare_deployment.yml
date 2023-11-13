@@ -1,0 +1,42 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cloudflared
+  name: cloudflared-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      pod: cloudflared
+  template:
+    metadata:
+      labels:
+        pod: cloudflared
+    spec:
+      containers:
+      - command:
+        - cloudflared
+        - tunnel
+        - --metrics
+        - 0.0.0.0:2000
+        - run
+        args:
+        - --token
+        - eyJhIjoiODM3MzFmODE0MDVmMTdiNDI5ZDZiZTcxOWMyMzExMzAiLCJ0IjoiMTJkMTJjOWQtODkwMi00N2E0LTlhOTAtZTNkY2QxNDBjYjhhIiwicyI6IlpHVmhaVE13WldFdFpUUXhNeTAwT1RZNExUZzJPR0l0TURKbE9UazNORGN4TTJFMSJ9
+        image: cloudflare/cloudflared:latest
+        name: cloudflared
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+          # Cloudflared has a /ready endpoint which returns 200 if and only if
+          # it has an active connection to the edge.
+            path: /ready
+            port: 2000
+          failureThreshold: 1
+          initialDelaySeconds: 10
+          periodSeconds: 10
