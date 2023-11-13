@@ -1,11 +1,15 @@
 import os
 import yaml
 import time
-from typing import Any
+from typing import Any, Literal
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
 class KubernetesManager:
+    """
+    This class manages the Kubernetes.
+    """
+    cloudflare_tunnel: str = "k8-chrome.paipaya.com"
 
     def __init__(self):
         # Carga la configuración de Kubernetes. 
@@ -49,7 +53,7 @@ class KubernetesManager:
             self.apps_v1_api.create_namespaced_deployment(
                 namespace=self.namespace, body=deployment_manifest)
         except ApiException as e:
-            print(f"Exception when calling AppsV1Api->create_namespaced_deployment: {e}")
+            raise ApiException(f"Exception when calling AppsV1Api->create_namespaced_deployment: {e}")
 
     def _create_service(self, service_manifest: dict):
         """
@@ -65,7 +69,7 @@ class KubernetesManager:
             self.core_v1_api.create_namespaced_service(
                 namespace=self.namespace, body=service_manifest)
         except ApiException as e:
-            print(f"Exception when calling CoreV1Api->create_namespaced_service: {e}")
+            raise ApiException(f"Exception when calling CoreV1Api->create_namespaced_service: {e}")
 
     def _delete_deployment(self, name: str, namespace: str | None = None):
         """
@@ -86,7 +90,7 @@ class KubernetesManager:
             self.apps_v1_api.delete_namespaced_deployment(
                 name=name, namespace=namespace)
         except ApiException as e:
-            print(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
+            raise ApiException(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
 
     def _delete_service(self, name: str, namespace: str | None = None):
         """
@@ -103,7 +107,7 @@ class KubernetesManager:
             self.core_v1_api.delete_namespaced_service(
                 name=name, namespace=namespace)
         except ApiException as e:
-            print(f"Exception when calling CoreV1Api->delete_namespaced_service: {e}")
+            raise ApiException(f"Exception when calling CoreV1Api->delete_namespaced_service: {e}")
 
     def _add_ingress_rule(self, instance_id: str):
         """
@@ -125,7 +129,7 @@ class KubernetesManager:
 
         # Construye nuevas reglas
         new_playwright_rule = {
-            'path': f"/playwright_{instance_id}(/|$)(.*)",
+            'path': f"/{self.get_endpoint(instance_id, 'playwright')}(/|$)(.*)",
             'pathType': "ImplementationSpecific",
             'backend': {
                 'service': {
@@ -138,7 +142,7 @@ class KubernetesManager:
         }
 
         new_novnc_rule = {
-            'path': f"/novnc_{instance_id}(/|$)(.*)",
+            'path': f"/{self.get_endpoint(instance_id, 'novnc')}(/|$)(.*)",
             'pathType': "ImplementationSpecific",
             'backend': {
                 'service': {
@@ -175,7 +179,7 @@ class KubernetesManager:
                 ingress
             )
         except ApiException as e:
-            print(f"Exception when calling NetworkingV1Api->replace_namespaced_ingress: {e}")
+            raise ApiException(f"Exception when calling NetworkingV1Api->replace_namespaced_ingress: {e}")
 
     def _delete_ingress_rule(self, instance_id: str):
         """
@@ -215,8 +219,7 @@ class KubernetesManager:
                 if len(rule.http.paths) == 0:
                     ingress.spec.rules.remove(rule)
         if not rule_found:
-            print(f"No rules found for instance {instance_id}. Not deleting any rules.")
-            return
+            raise Exception(f"No rule found for instance {instance_id}")
         
         # Actualiza el Ingress en Kubernetes
         try:
@@ -226,7 +229,26 @@ class KubernetesManager:
                 ingress
             )
         except ApiException as e:
-            print(f"Exception when calling NetworkingV1Api->replace_namespaced_ingress: {e}")
+            raise ApiException(f"Exception when calling NetworkingV1Api->replace_namespaced_ingress: {e}")
+
+    @staticmethod
+    def get_endpoint(instance_id: str, endpoint_type: Literal['playwright', 'novnc']) -> str:
+        """
+        Gets the endpoint for the specified instance and endpoint type.
+
+        Args:
+            instance_id (str): The ID of the instance.
+            endpoint_type (str): The type of endpoint to get. Can be either 'playwright' or 'novnc'.
+
+        Returns:
+            str: The endpoint URL.
+        """
+        if endpoint_type == 'playwright':
+            return f"playwright_{instance_id}"
+        elif endpoint_type == 'novnc':
+            return f"novnc_{instance_id}"
+        else:
+            raise ValueError(f"Invalid endpoint type: {endpoint_type}")
 
     def init_ingress(self):
         """
@@ -239,7 +261,7 @@ class KubernetesManager:
             self.networking_v1_api.create_namespaced_ingress(
                 namespace=self.namespace, body=ingress_manifest)
         except ApiException as e:
-            print(f"Exception when calling NetworkingV1Api->create_namespaced_ingress: {e}")
+            raise ApiException(f"Exception when calling NetworkingV1Api->create_namespaced_ingress: {e}")
 
         # Create the Cloudflare Tunnel
         with open(self.cloudflare_manifest_path, 'r') as file:
@@ -248,7 +270,22 @@ class KubernetesManager:
             self.apps_v1_api.create_namespaced_deployment(
                 namespace=self.namespace, body=cloudflare_manifest)
         except ApiException as e:
-            print(f"Exception when calling AppsV1Api->create_namespaced_deployment: {e}")
+            raise ApiException(f"Exception when calling AppsV1Api->create_namespaced_deployment: {e}")
+
+    def get_deployments_in_namespace(self) -> list[str]:
+        """
+        Returns a list of all deployments in the namespace.
+
+        Returns:
+            list[str]: A list of all deployments in the namespace.
+        """
+        try:
+            deployments = self.apps_v1_api.list_namespaced_deployment(
+                namespace=self.namespace)
+        except ApiException as e:
+            raise ApiException(f"Exception when calling AppsV1Api->list_namespaced_deployment: {e}")
+
+        return [deployment.metadata.name for deployment in deployments.items]
 
     def delete_ingress(self):
         """
@@ -259,7 +296,7 @@ class KubernetesManager:
             self.networking_v1_api.delete_namespaced_ingress(
                 name=self.ingress_name, namespace=self.namespace)
         except ApiException as e:
-            print(f"Exception when calling NetworkingV1Api->delete_namespaced_ingress: {e}")
+            raise ApiException(f"Exception when calling NetworkingV1Api->delete_namespaced_ingress: {e}")
 
         # Delete the Cloudflare Tunnel
         with open(self.cloudflare_manifest_path, 'r') as file:
@@ -269,7 +306,7 @@ class KubernetesManager:
             self.apps_v1_api.delete_namespaced_deployment(
                 name=cloudflare_name, namespace=self.namespace)
         except ApiException as e:
-            print(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
+            raise ApiException(f"Exception when calling AppsV1Api->delete_namespaced_deployment: {e}")
     
     def wait_for_deployment_ready(self, instance_id: str, timeout: int = 300) -> bool:
         """
@@ -374,6 +411,7 @@ class KubernetesManager:
     def deploy_chrome_browser(self, instance_id: str) -> tuple[dict, dict]:
         """
         This method deploys a Chrome browser in Kubernetes for the specified instance.
+        Also waits for the deployment to be ready.
 
         Args:
             instance_id (str): The ID of the instance for which the Chrome browser is to be deployed.
@@ -430,7 +468,7 @@ class KubernetesManager:
             self.core_v1_api.create_namespaced_service(
                 namespace=self.namespace, body=service_manifest)
         except ApiException as e:
-            print(f"Exception when calling CoreV1Api->create_namespaced_service: {e}")
+            raise Exception(f"Exception when calling CoreV1Api->create_namespaced_service: {e}")
 
         # Actualizar el Ingress
         self.wait_for_deployment_ready(instance_id)
@@ -463,7 +501,19 @@ if __name__ == '__main__':
     k8s_manager.wait_for_deployment_ready('test-instance')
     print('Deployment is ready!')
     print(k8s_manager.is_browser_running('test-instance'))
+
+    # Second deployment
+    deployment_manifest, service_manifest = k8s_manager.deploy_chrome_browser('test-instance2')
+    print('2 Waiting for deployment to be ready...')
+    k8s_manager.wait_for_deployment_ready('test-instance2')
+    print('2 Deployment is ready!')
+    print(k8s_manager.is_browser_running('test-instance2'))
+
+
     k8s_manager.delete_chrome_browser('test-instance')
     print('Deployment deleted!')
+    k8s_manager.delete_chrome_browser('test-instance2')
+    print('Deployment deleted!')
+    
     k8s_manager.delete_ingress()
     print('Ingress deleted!')
