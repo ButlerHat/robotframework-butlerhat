@@ -22,3 +22,6 @@
 [submodule "TestSuites/KitDigital"]
 	path = TestSuites/KitDigital
 	url = git@github.com:ButlerHat/KitDigital.git
+[submodule "orchestrator-butlerhat"]
+	path = orchestrator-butlerhat
+	url = git@github.com:ButlerHat/orchestrator-butlerhat.git
