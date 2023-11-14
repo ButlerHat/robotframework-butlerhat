@@ -14,7 +14,12 @@ class KubernetesManager:
     def __init__(self):
         # Carga la configuración de Kubernetes. 
         # Esto se ajustará dependiendo del entorno (p.ej., local, EKS, GKE)
-        config.load_kube_config()
+        if os.path.isdir("/var/run/secrets/kubernetes.io/serviceaccount"):
+            config.load_incluster_config()
+            print("Loaded in-cluster config (/var/run/secrets/kubernetes.io/serviceaccount).")
+        else:
+            config.load_kube_config()
+            print("Loaded local kube config (~/.kube/config).")
 
         self.apps_v1_api = client.AppsV1Api()
         self.core_v1_api = client.CoreV1Api()

@@ -1,0 +1,14 @@
+name: fastapi
+
+channels:
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip
+
+  - pip:
+    - uvicorn
+    - kubernetes
+    - pyyaml
+    - fastapi
