@@ -157,7 +157,20 @@ class DataBrowserLibrary(DataWrapperLibrary):
         self._library.scroll_by(selector=None, vertical='-100%')
 
     def _get_viewport(self) -> dict:
-        return self._library.get_viewport_size()
+        """
+        Returs the viewport size in dictionary format: {'width': int, 'height': int}
+        Raises Exception if viewport is None.
+        """
+        viewport: dict | None = self._library.get_viewport_size()
+        if not viewport:
+            # Try getting with javascript
+            vw = self._library.evaluate_javascript(None, 'Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)')
+            vh = self._library.evaluate_javascript(None, 'Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)')
+            if vw and vh:
+                viewport = {'width': vw, 'height': vh}
+            else:
+                raise Exception('Error getting viewport. Viewport is None.')
+        return viewport
 
     def _run_scroll(self, selector: str) -> None:
         BuiltIn().run_keyword('Browser.Scroll Down', selector)
@@ -596,14 +609,13 @@ class DataBrowserLibrary(DataWrapperLibrary):
         param selector_bbox: BBox of the element to click.
         param no_click: If True, only record the event, but not click.
         """
-        if isinstance(selector_bbox, str):
-            selector_bbox = BBox.from_rf_string(selector_bbox)
-        if not self._element_is_in_viewport(selector_bbox):
+        bbox: BBox = BBox.from_rf_string(selector_bbox) if isinstance(selector_bbox, str) else selector_bbox
+        if not self._element_is_in_viewport(bbox):
             BuiltIn().fail(f'Failing clicking at a bounding box outside the viewport. Check previous messages in the logs. Selector: {selector_bbox}')
         # Get the middle of the bbox
-        top_left = (selector_bbox.x, selector_bbox.y)
-        w = selector_bbox.width
-        h = selector_bbox.height
+        top_left = (bbox.x, bbox.y)
+        w = bbox.width
+        h = bbox.height
         middle_coordinates = (top_left[0] + w//2, top_left[1] + h//2)
         
         if not no_click:
