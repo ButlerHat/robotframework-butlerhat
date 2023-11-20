@@ -301,6 +301,23 @@ async function getElementBboxHighlighted(page) {
     el_bbox = await elementHandle.boundingBox();
     logger("elementHandle Bbox: " + el_bbox.x + ", " + el_bbox.y + ", " + el_bbox.width + ", " + el_bbox.height);
   }
+
+  async function getViewportSize(page, logger) {
+    let viewport = await page.viewportSize();
+    if (!viewport) {
+      viewport_w = await page.evaluate(() => {
+        return Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      });
+      logger("viewport_w: " + viewport_w)
+      viewport_h = await page.evaluate(() => {
+        return Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+      });
+      logger("viewport_h: " + viewport_h)
+      viewport = {width: viewport_w, height: viewport_h};
+    }
+    logger("viewport: " + viewport.width + ", " + viewport.height);
+    return viewport;
+  }
   
   async function scrollElementIfNeeded(page, args, logger) {
     // Function to scroll an element if needed. 
@@ -347,7 +364,7 @@ async function getElementBboxHighlighted(page) {
       parent_is_frame = true;
 
       // Get frame bbox
-      viewport = await page.viewportSize();
+      viewport = await getViewportSize(page, logger);
       frame_bbox = await page.locator(frame_locator).boundingBox();
       frame_bbox.width = Math.min(frame_bbox.width, viewport.width);
       frame_bbox.height = Math.min(frame_bbox.height, viewport.height);
@@ -358,7 +375,7 @@ async function getElementBboxHighlighted(page) {
     } else {
       element = await page.locator(args[0]);
       frame = page;
-      frame_bbox = await page.viewportSize();
+      frame_bbox = await getViewportSize(page, logger);
       frame_bbox.x = 0;
       frame_bbox.y = 0;
     }
@@ -392,6 +409,8 @@ async function getElementBboxHighlighted(page) {
 
     const bbox_before = await element.boundingBox();
     const bbox_parent_before = await scrollableParentHandle.boundingBox();
+    logger("bbox_parent_before: " + JSON.stringify(bbox_parent_before))
+    logger("frame_bbox: " + JSON.stringify(frame_bbox))
     // parent_bbox is the min of the height and width of the viewport and the parent
     const return_parent_bbox = {
       x: Math.max(bbox_parent_before.x, frame_bbox.x),
