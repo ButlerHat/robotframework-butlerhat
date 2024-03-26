@@ -27,6 +27,7 @@ jobs:
 
     - name: Build Python package
       run: |
+        git describe --tags --abbrev=0
         pip install setuptools_scm
         python setup.py sdist
 
