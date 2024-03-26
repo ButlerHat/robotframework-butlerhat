@@ -27,8 +27,8 @@ jobs:
 
     - name: Build Python package
       run: |
-      pip install setuptools_scm
-      python setup.py sdist
+        pip install setuptools_scm
+        python setup.py sdist
 
     - name: Install Twine
       run: |
