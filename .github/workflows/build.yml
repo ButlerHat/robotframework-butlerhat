@@ -13,6 +13,7 @@ jobs:
       with:
         submodules: 'recursive'
         ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+        fetch-depth: 0  # Fetch all history for all tags and branches
 
     - name: Set up SSH key
       uses: webfactory/ssh-agent@v0.4.1
