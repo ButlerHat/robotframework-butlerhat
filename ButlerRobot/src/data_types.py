@@ -1,16 +1,15 @@
 from __future__ import annotations
-from enum import Enum, auto
-
+from enum import Enum
+from json import JSONEncoder
 import math
 import base64
 import json
 import os
 import re
 import imagehash
-import pickle
 from io import BytesIO
 from PIL import Image
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, is_dataclass
 from typing import Iterable, Optional
 
 """
@@ -42,10 +41,20 @@ Data structure for the ButlerRobot.
 class SaveStatus(Enum):
     """Enum that defines if step must be saved."""
 
-    to_record = auto()
-    confirm_record = auto()
-    only_substeps = auto()
-    no_record = auto()
+    to_record = "TO_RECORD"
+    confirm_record = "CONFIRM_RECORD"
+    only_substeps = "ONLY_SUBSTEPS"
+    no_record = "NO_RECORD"
+
+    def __str__(self):
+        return self.value
+    
+    def __hash__(self):
+        return hash(self.value)
+    
+    def to_dict(self):
+        return self.value
+
 
 @dataclass
 class Step:
@@ -68,6 +77,31 @@ class Step:
         # Check if all the attributes are set and not None
         context_complete = self.context is not None and self.context.is_complete()
         return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and context_complete
+    
+    def save(self, save_path: str):
+        """
+        Save to json file. If save path is a directory, save with the name of the task
+        :param save_path: Path to save the task.
+        """
+        if os.path.exists(save_path) and os.path.isdir(save_path):
+            save_path = os.path.join(save_path, f"{self.name}.json")
+        elif not save_path.endswith('.json'):
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            save_path = os.path.join(save_path, f"{self.name}.json")
+
+        # Save in json
+        with open(save_path, 'w') as f:
+            json.dump(asdict(self), f, indent=4, cls=CustomJSONEncoder)
+    
+    @classmethod
+    def from_dict(cls, data):
+        context = None
+        if "context" in data and data["context"] is not None:
+            context = Context.from_dict(data["context"])
+        tags = []
+        if "tags" in data:
+            tags = data["tags"]
+        return cls(data["id"], data["name"], SaveStatus(data["status"]), context, tags)
 
 @dataclass(init=False)
 class PageAction(Step):
@@ -88,32 +122,18 @@ class PageAction(Step):
         self.action_args = action_args if action_args else ActionArgs('', '', None)
         self.status = status
 
+    @classmethod
+    def from_dict(cls, data):
+        action_args = None
+        if "action_args" in data and data["action_args"] is not None:
+            action_args = ActionArgs.from_dict(data["action_args"])
+        step = Step.from_dict(data)
+        return cls(step.id, step.name, step.status, step.context, step.tags, action_args)
+
 
 @dataclass
 class Task(Step):
     steps: list[Step] = field(default_factory=list)
-
-    def save(self, save_path: str, save_json: bool = False):
-        """
-        Save task to pickle file. If save_json is True, save also to json file.
-        :param save_path: Path to save the task.
-        :param save_json: If True, save also to json file.
-        """
-        # If save path is a directory, save with the name of the task
-        if os.path.exists(save_path) and os.path.isdir(save_path):
-            save_path = os.path.join(save_path, f"{self.name}.pickle")
-        elif not save_path.endswith('.pickle'):
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            save_path = os.path.join(save_path, f"{self.name}.pickle")
-        # Else save with the given path
-
-        # Save pickle
-        with open(save_path, "wb") as f:
-            pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-
-        if save_json:
-            with open(save_path.replace('.pickle', '.json'), 'w') as f:
-                json.dump(asdict(self), f, indent=4)
 
     def _get_parents_ids(self, step_id: int) -> list[int]:
         """
@@ -304,13 +324,7 @@ class Task(Step):
             step.status = status
             if isinstance(step, Task):
                 step.set_status_to_all_children(status)
-
-    def to_dict(self):
-        asdict(self)
-
-    def to_json(self):
-        return json.dumps(asdict(self))
-
+    
     def has_confirmed_tasks_inside(self) -> bool:
         for step in self.get_all_tasks():
             if step.status == SaveStatus.confirm_record:
@@ -323,6 +337,19 @@ class Task(Step):
                 return True
         return False
 
+    @classmethod
+    def from_dict(cls, data):
+        steps = []
+        if "steps" in data:
+            for step_data in data["steps"]:
+                if 'steps' in step_data:
+                    step = Task.from_dict(step_data)
+                else:
+                    step = PageAction.from_dict(step_data)
+                steps.append(step)
+        step = Step.from_dict(data)
+        return cls(step.id, step.name, step.status, step.context, step.tags, steps)
+
 @dataclass
 class Context:
     start_observation: Observation
@@ -334,6 +361,15 @@ class Context:
         start_complete = self.end_observation is not None and self.start_observation.is_complete()
         end_complete = self.end_observation is not None and self.end_observation.is_complete()
         return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and start_complete and end_complete
+    
+    @classmethod
+    def from_dict(cls, data):
+        start_observation = Observation.from_dict(data["start_observation"])
+        end_observation = None
+        if "end_observation" in data and data["end_observation"] is not None:
+            end_observation = Observation.from_dict(data["end_observation"])
+        return cls(start_observation, data["status"], end_observation)  # type: ignore
+
 
 @dataclass
 class ActionArgs:
@@ -350,6 +386,14 @@ class ActionArgs:
         if not isinstance(self.selector_dom, str):
             self.selector_dom = str(self.selector_dom)
         return asdict(self)
+    
+    @classmethod
+    def from_dict(cls, data):
+        bbox = None
+        if "bbox" in data and data["bbox"] is not None:
+            bbox = BBox.from_dict(data["bbox"])
+        return cls(data["selector_dom"], data["string"], bbox)
+
 
 @dataclass
 class Observation:
@@ -392,12 +436,16 @@ class Observation:
             return ''
         return str(imagehash.average_hash(Image.open(BytesIO(base64.b64decode(self.screenshot)))))
 
-
     def __eq__(self, other):
         """
         Only compare the image.
         """
         return self.__hash__() == other.__hash__()
+    
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["time"], data["screenshot"], data["dom"], data["pointer_xy"])
+
 
 @dataclass
 class DomSet:
@@ -408,8 +456,11 @@ class DomSet:
             self.dom_set.add(dom)
         else:
             dom = next((d for d in self.dom_set if d == dom), None)  # type: ignore
-        
         return dom
+    
+    @classmethod
+    def from_dict(cls, data):
+        return cls(set(data["dom_set"]))
 
 
 @dataclass
@@ -424,10 +475,6 @@ class BBox:
         self.y = int(self.y)
         self.width = int(self.width)
         self.height = int(self.height)
-
-    # To dict
-    def to_dict(self):
-        return asdict(self)
 
     def pillow_print(self):
         return (self.x, self.y, self.x + self.width, self.y + self.height)
@@ -453,6 +500,7 @@ class BBox:
         """
         return self.x < other.x + other.width
 
+
     @classmethod
     def from_rf_string(cls, string: str):
         """
@@ -470,3 +518,16 @@ class BBox:
         # Only get the digits
         args = [int(re.sub(r'\D', '', arg)) for arg in args]
         return cls(*args)
+    
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["x"], data["y"], data["width"], data["height"])
+    
+
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        if is_dataclass(obj):
+            return asdict(obj)
+        elif hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        return super().default(obj)

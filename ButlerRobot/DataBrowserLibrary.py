@@ -3,6 +3,7 @@ import datetime
 import os
 import random
 import json
+from dataclasses import asdict
 from typing import Optional, Union, Any, List, Dict
 from io import BytesIO
 from enum import Enum, auto
@@ -54,7 +55,6 @@ class DataBrowserLibrary(DataWrapperLibrary):
         This library capture data from Browser tests to use later for training deep learning models.
 
         :param output_path: Path to save data. Default: RobotFramework output directory.
-        :param all_json: Save all data in json format. This is use for debuggin purposes. Default: False.
         :param only_actions: Save only actions with tag PageAction. Default: True.
         :param record: Record data. Default: True.
         :param console: Show logs in console. Default: True.
@@ -831,7 +831,7 @@ class DataBrowserLibrary(DataWrapperLibrary):
         if selector:
             bbox, _ = self._get_bbox_and_pointer(selector)
             if bbox:
-                img = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
+                img = self._library.take_screenshot(crop=BoundingBox(**asdict(bbox)), return_as=ScreenshotReturnType.base64)
 
         if not img:
             img = self._library.take_screenshot(return_as=ScreenshotReturnType.base64)
@@ -888,12 +888,12 @@ class DataBrowserLibrary(DataWrapperLibrary):
         bottom_right = (bbox.x + bbox.width, bbox.y + bbox.height)
         view_port = self._library.get_viewport_size()
         if bottom_right[0] > view_port.width or bottom_right[1] > view_port.height:
-            BuiltIn().log(f'Error at Get Text From BBox. The bbox is out of the viewport. BBox: {bbox.to_dict()}', 'WARN', console=True)
+            BuiltIn().log(f'Error at Get Text From BBox. The bbox is out of the viewport. BBox: {asdict(bbox)}', 'WARN', console=True)
             return ''
         text = self._library.getTextFromBboxWithJs(bbox.x, bbox.y, bottom_right[0], bottom_right[1])
         if not text and with_ocr:
             BuiltIn().log(f'Getting text with JavaScript failed. Trying with OCR', console=True)
-            img = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
+            img = self._library.take_screenshot(crop=BoundingBox(**asdict(bbox)), return_as=ScreenshotReturnType.base64)
             text = get_all_text(self.ocr_url, img)
         if not text:
             BuiltIn().log(f'Error at Get Text From BBox. No text found for locator {selector_bbox}', 'WARN', console=True)

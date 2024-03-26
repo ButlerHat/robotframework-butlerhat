@@ -55,11 +55,16 @@ selenium_requires = base_requires + [
 ]
 
 
-packages = find_packages(exclude=["test", "TestSuites", "ButlerApi", "robotframework-browser-stealth"])
+packages = find_packages(exclude=[
+    "test", 
+    "TestSuites", 
+    "ButlerApi", 
+    "robotframework-browser-stealth"
+])
 
 setup_kwargs = {
     "name": "robotframework-butlerhat",
-    "version": "0.1",
+    # "version": "0.2",
     "description": "ButlerHat libraries for data and inference with AI in RobotFramework.",
     "long_description": long_description,
     "long_description_content_type": "text/markdown",
@@ -68,6 +73,8 @@ setup_kwargs = {
     "maintainer": None,
     "maintainer_email": None,
     "url": "",
+    "use_scm_version": True,
+    "setup_requires": ["setuptools_scm"],
     "packages": packages,
     "install_requires": base_requires,
     "entry_points": {"console_scripts": ["rfbrowser=Browser.entry:main"]},

@@ -1,16 +1,21 @@
 import os
+import threading
 import ButlerRobot
+import tkinter as tk
+from tkinter import ttk
 import cv2
+from cv2.typing import MatLike
 import random
 import imagehash
 from .src.utils import ocr
 from typing import Optional
-from PIL import Image
+from PIL import Image, ImageTk
 from robot.libraries.BuiltIn import BuiltIn
 from robot.api.deco import keyword
 from Browser.utils.data_types import KeyboardInputAction, KeyAction
 from Browser import Browser
 from .src.data_types import BBox
+from .keywords.gpt4v import predict_instruction_accurate
 
 
 class DataRecorderInterface:
@@ -29,7 +34,18 @@ class DataRecorderInterface:
     ROBOT_AUTO_KEYWORDS = False
     ROBOT_LIBRARY_SCOPE = 'GLOBAL'
 
-    def __init__(self, library_instance: Browser, elements_xpath: list, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
+    def __init__(
+            self, 
+            library_instance: Browser, 
+            elements_xpath: list, 
+            wait_to_go: int = 2, 
+            max_scroll: int = 5, 
+            max_elements: int = -2, 
+            lang_instructions: str="en",
+            supervise_crop: bool = False,
+            previous_keyword: str | None = None,
+            previous_keyword_args: list | None = None
+        ):
         # Browser instance
         self.library: Browser = library_instance
         # Elemnents xpath
@@ -42,6 +58,11 @@ class DataRecorderInterface:
         self.max_elements: int = max_elements
         # Lang
         self.lang_instructions: str = lang_instructions
+        # Supervise crop
+        self.supervise_crop: bool = supervise_crop
+        # Previous keyword
+        self.previous_keyword: str | None = previous_keyword
+        self.previous_keyword_args: list | None = previous_keyword_args
 
         # ====== Utils ======
         # OCR
@@ -53,16 +74,20 @@ class DataRecorderInterface:
         # Temp dir to store the screenshots
         out_dir = BuiltIn().get_variable_value("${OUTPUTDIR}")
         self.tmp_dir = os.path.join(out_dir, 'tmp_screenshots')
-        if not os.path.exists(self.tmp_dir):
-            os.makedirs(self.tmp_dir)
+        self.screenshot_elements_path = os.path.join(self.tmp_dir, 'elements')
+        self.matched_element_path = os.path.join(self.tmp_dir, 'matched_elements')
+        if not os.path.exists(self.screenshot_elements_path):
+            os.makedirs(self.screenshot_elements_path)
+        if not os.path.exists(self.matched_element_path):
+            os.makedirs(self.matched_element_path)
 
-    def _action(self, instruction: Optional[str], img_element: cv2.Mat, el_margin: tuple[int, int], *args) -> None:
+    def _action(self, instruction: Optional[str], img_element: MatLike, el_margin: tuple[int, int], *args) -> None:
         """
         Action to perform on the element.
         """
         raise NotImplementedError
 
-    def _predict_instruction(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox, *action_args):
+    def _predict_instruction(self, screenshot_path: str, element_path: str, action_bbox: BBox, *action_args):
         """
         Predict the instruction to perform.
         """
@@ -81,7 +106,6 @@ class DataRecorderInterface:
         Visual template matching is found the most reliable way to confirm the element
         validated is the selected in the record step.
         """
-
         elements = self._get_elements_to_record()
         self._record_elements(elements)
 
@@ -138,6 +162,10 @@ class DataRecorderInterface:
 
             return bbox, (x_margin, y_margin)
 
+        # If the previous keyword is set, run it
+        if self.previous_keyword:
+            BuiltIn().run_keyword(self.previous_keyword, *self.previous_keyword_args)
+
         filename_screenshot = os.path.join(self.tmp_dir, f"page_screenshot.png")
         # Wait to load
         BuiltIn().sleep(5)
@@ -176,7 +204,13 @@ class DataRecorderInterface:
                             BuiltIn().log(f"Trying to expand. Invalid bbox: {bbox_element} in viewport {page_size}. Not expanding element for template matching", 
                                 level='WARN', console=True)
 
-                    filename = self._crop_and_save(self.tmp_dir, page_screenshot, bbox_element, count, margin_xy)
+                    filename = self._crop_and_save(
+                        self.screenshot_elements_path,
+                        page_screenshot, 
+                        bbox_element, 
+                        count, 
+                        margin_xy
+                    )
 
                     # Not recording if is not good element
                     if not filename or not self._is_good_element(filename):
@@ -198,6 +232,10 @@ class DataRecorderInterface:
 
         finish = False
         for el_screenshot in el_screenshots:
+            # If the previous keyword is set, run it
+            if self.previous_keyword:
+                BuiltIn().run_keyword(self.previous_keyword, *self.previous_keyword_args)
+            # Now, ground the element and perform the action
             try:
                 self._seek_element_perform_action(el_screenshot)
             except Exception as e:
@@ -212,16 +250,6 @@ class DataRecorderInterface:
         Performs the action on the matched element with the screenshot.
         Action must be implemented in the child class. The arguments of the action must be passed to the function.
         """
-        def get_instruction(img_page: cv2.Mat, el_bbox: BBox) -> str:
-            margin = 50
-            x = max(0, (el_bbox.x - margin))
-            y = max(0, (el_bbox.y - margin))
-            width = min(img_page.shape[1], (el_bbox.x + el_bbox.width + margin)) - x
-            height = min(img_page.shape[0], (el_bbox.y + el_bbox.height + margin)) - y
-            bbox_page = {"x": x, "y": y, "width": width, "height": height}
-            crop_page = self._crop_and_save(self.tmp_dir, page_screenshot, bbox_page, 0, (0, 0))
-            return self._predict_instruction(crop_page, element_screenshot, el_bbox, *action_args)
-
         # Load images
         page_screenshot = self.library.take_screenshot(os.path.join(self.tmp_dir, f"page_screenshot.png"), fullPage=True)
         img_page = cv2.imread(page_screenshot)
@@ -234,8 +262,39 @@ class DataRecorderInterface:
             # Element not found
             BuiltIn().log('Element not found')
             return
+        
+        # Crop the element from the page screenshot
+        margin_for_viewport = 0
+        x = max(0, (el_bbox.x - margin_for_viewport))
+        y = max(0, (el_bbox.y - margin_for_viewport))
+        width = min(img_page.shape[1], (el_bbox.x + el_bbox.width + margin_for_viewport)) - x
+        height = min(img_page.shape[0], (el_bbox.y + el_bbox.height + margin_for_viewport)) - y
+        bbox_page = {"x": x, "y": y, "width": width, "height": height}
+        crop_page = self._crop_and_save(
+            self.matched_element_path, 
+            page_screenshot, 
+            bbox_page, 
+            0, 
+            (0, 0)
+        )
 
-        instruction = get_instruction(img_page, el_bbox)
+        # Supervise the crop
+        if self.supervise_crop:
+            continue_element = self.review_images({
+                'Cropped Element from Page': crop_page,
+                'Element': element_screenshot,
+                
+            })
+            if not continue_element:
+                return
+            
+        if not crop_page:
+            BuiltIn().log(f"Error while cropping page: {page_screenshot}", level='WARN', console=True)
+            instruction = "Not"
+        else:
+            # Predict instruction
+            instruction = self._predict_instruction(page_screenshot, crop_page, el_bbox, *action_args)
+
         # Perform action
         self._action(instruction, img_element, margin, *action_args)
 
@@ -251,7 +310,6 @@ class DataRecorderInterface:
             BuiltIn().log(f"Error while getting text from {element_screenshot}", level='WARN', console=True)
             return ""
         return text
-
     
     def _get_margin_from_filename(self, filename: str) -> tuple[int, int]:
         """
@@ -267,7 +325,7 @@ class DataRecorderInterface:
     @staticmethod
     def _crop_and_save(save_dir, page_screenshot, bbox_element, count, margin_xy) -> str | None:
         """
-        Crop the element and save it in the tmp_dir.
+        Crop the element and save it in the tmp_dir. Returns the cropped image
         """
             # Crop bounding box in filename_screenshot
         img = cv2.imread(page_screenshot)
@@ -283,7 +341,7 @@ class DataRecorderInterface:
         return filename
 
     @staticmethod
-    def _get_element_bbox(img_page: cv2.Mat, img_element: cv2.Mat, margin: tuple[int, int]) -> Optional[BBox]:
+    def _get_element_bbox(img_page: MatLike, img_element: MatLike, margin: tuple[int, int]) -> Optional[BBox]:
         def remove_margin_from_bbox(bbox: BBox, margin_x: int, margin_y: int) -> BBox:
             """
             Remove the margin from the bbox.
@@ -308,6 +366,99 @@ class DataRecorderInterface:
         el_bbox = remove_margin_from_bbox(el_bbox, margin[0], margin[1])
         return el_bbox
 
+    @staticmethod
+    def review_images_threading(images_dict):
+        # This will store the images to prevent them from being garbage-collected
+        images_references = []
+        # This event will be set when a button is clicked
+        button_click_event = threading.Event()
+        # This will store the review result
+        review_result = {'value': True}
+
+        def on_pass():
+            review_result['value'] = True
+            button_click_event.set()
+            root.destroy()
+
+        def on_reject():
+            review_result['value'] = False
+            button_click_event.set()
+            root.destroy()
+
+        # Create the main window
+        root = tk.Tk()
+        root.title("Image Review")
+
+        # Load and display the images from the dictionary
+        for name, path in images_dict.items():
+            img = Image.open(path)
+            photo = ImageTk.PhotoImage(img)
+            label = ttk.Label(root, text=name, compound='top', image=photo)
+            # Add the photo reference to the list to keep it
+            images_references.append(photo)
+            label.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Create Pass and Reject buttons
+        pass_button = ttk.Button(root, text="Pass", command=on_pass)
+        pass_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        reject_button = ttk.Button(root, text="Reject", command=on_reject)
+        reject_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Start the GUI loop in a separate thread
+        gui_thread = threading.Thread(target=root.mainloop)
+        gui_thread.start()
+
+        # Wait for the button click event
+        button_click_event.wait()
+
+        # Return the review result
+        return review_result['value']
+
+    @staticmethod
+    def review_images(images_dict):
+        # Define shared variables to capture the user's response
+        user_response = {'value': True}
+
+        def on_pass():
+            user_response['value'] = True
+            root.destroy()
+
+        def on_reject():
+            user_response['value'] = False
+            root.destroy()
+
+        # Create the main window
+        root = tk.Tk()
+        root.title("Image Review")
+
+        # Keep references to the images to avoid garbage collection
+        images_references = []
+
+        # Load and display the images from the dictionary
+        for name, path in images_dict.items():
+            img = Image.open(path)
+            photo = ImageTk.PhotoImage(img)
+            label = ttk.Label(root, text=name, compound='top', image=photo)
+            label.pack(side=tk.LEFT, padx=5, pady=5)
+
+            # Store the image reference to prevent garbage collection
+            images_references.append(photo)
+
+        # Create Pass and Reject buttons
+        pass_button = ttk.Button(root, text="Pass", command=on_pass)
+        pass_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        reject_button = ttk.Button(root, text="Reject", command=on_reject)
+        reject_button.pack(side=tk.LEFT, padx=5, pady=5)
+
+        # Run the Tkinter event loop
+        root.mainloop()
+
+        # Return the user's response after the window is closed
+        return user_response['value']
+
+
 class Page:
     """
     Class to manage the page restoration.
@@ -325,7 +476,9 @@ class Page:
 
         # Go to the previous page
         page_to_restore = self._get_active_page(context_to_restore)
-        self.library.go_to(page_to_restore['url'])
+        # Close page and reopen it
+        self._close_last_opened_page(new_context)
+        self.library.new_page(page_to_restore['url'])
         self.library.wait_until_network_is_idle()
         BuiltIn().sleep(self.wait_to_go)
 
@@ -371,11 +524,30 @@ class SingleClickRecorder(DataRecorderInterface):
     Given a page, record all the single click events that are feasible in that page. After that,
     reset the page to its original state.
     """
-    def __init__(self, library_instance: Browser, wait_go_to=2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
-        # Clicable elements
-        button_xpath = ['//h3//a', '//h3[not(.//a)]']
-
-        super().__init__(library_instance, button_xpath, wait_to_go=wait_go_to, max_scroll=max_scroll, max_elements=max_elements, lang_instructions=lang_instructions)
+    def __init__(
+            self, 
+            library_instance: Browser, 
+            elements_xpath: list = ['//a', '//button', '//input[@type="submit"]', '//input[@type="button"]', '//input[@type="image"]', '//input[@type="file"]', '//input[@type="checkbox"]', '//input[@type="radio"]', '//select', '//option', '//optgroup'], 
+            wait_go_to=2, 
+            max_scroll: int = 5, 
+            max_elements: int = -2, 
+            lang_instructions: str="en",
+            supervise_crop: bool = False,
+            previous_keyword: str | None = None,
+            previous_keyword_args: list | None = None
+        ):
+        
+        super().__init__(
+            library_instance=library_instance, 
+            elements_xpath=elements_xpath, 
+            wait_to_go=wait_go_to, 
+            max_scroll=max_scroll, 
+            max_elements=max_elements, 
+            lang_instructions=lang_instructions,
+            supervise_crop=supervise_crop,
+            previous_keyword=previous_keyword,
+            previous_keyword_args=previous_keyword_args
+        )
         self.wait_go_to = wait_go_to
 
     def _is_good_element(self, element_screenshot: str):
@@ -383,12 +555,12 @@ class SingleClickRecorder(DataRecorderInterface):
         Check if the element is clickable
         """
         # Check with ocr if the element contains text
-        text = self._get_text(element_screenshot)
-        if not text:
-            return False
+        # text = self._get_text(element_screenshot)
+        # if not text:
+        #     return False
         return True
 
-    def _predict_instruction(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox):
+    def _predict_instruction_legacy(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox):
         # Read the text of the element
         text = self._get_text(element_path)
         if self.lang_instructions == "es":
@@ -396,6 +568,9 @@ class SingleClickRecorder(DataRecorderInterface):
         else:
             click_str = ["Click on", "Go to", "Press", "Access to", ""]
         return f"{random.choice(click_str)} {text}"
+    
+    def _predict_instruction(self, screenshot_path: str, element_path: str, action_bbox: BBox):
+        return predict_instruction_accurate("Click", screenshot_path, element_path)
     
     def _action(self, predicted_instruction: str, img_element: cv2.Mat, el_margin: tuple[int, int]):
 
@@ -413,10 +588,14 @@ class SingleClickRecorder(DataRecorderInterface):
         # Due to import library does not accept kwargs, all args must be passed
         args = (
             self.library,
+            self.elements_xpath,
             self.wait_go_to,
             self.max_scroll,
             self.max_elements,
-            self.lang_instructions
+            self.lang_instructions,
+            self.supervise_crop,
+            self.previous_keyword,
+            self.previous_keyword_args
         )
 
         # The library must be imported with the name of the library to custom the name of the Task
@@ -459,11 +638,31 @@ class TypeTextRecorder(DataRecorderInterface):
     Given a page, record all the single click events that are feasible in that page. After that,
     reset the page to its original state.
     """
-    def __init__(self, library_instance: Browser, num_words_per_input = 5, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"):
-        # Text elements
-        text_xpath = ['//input[@type="text"]', '//input[@type="password"]', '//input[@type="email"]', '//input[@type="number"]', '//input[@type="tel"]', '//input[@type="url"]', '//input[@type="search"]', '//textarea']
-        
-        super().__init__(library_instance, text_xpath, wait_to_go=wait_to_go, max_scroll=max_scroll, max_elements=max_elements, lang_instructions=lang_instructions)
+    def __init__(
+            self, 
+            library_instance: Browser, 
+            elements_xpath: list = ['//input[@type="text"]', '//input[@type="password"]', '//input[@type="email"]', '//input[@type="number"]', '//input[@type="tel"]', '//input[@type="url"]', '//input[@type="search"]', '//textarea'],
+            num_words_per_input = 5, 
+            wait_to_go: int = 2, 
+            max_scroll: int = 5, 
+            max_elements: int = -2, 
+            lang_instructions: str="en",
+            supervise_crop: bool = False,
+            previous_keyword: str | None = None,
+            previous_keyword_args: list | None = None
+        ):
+
+        super().__init__(
+            library_instance=library_instance, 
+            elements_xpath=elements_xpath, 
+            wait_to_go=wait_to_go, 
+            max_scroll=max_scroll, 
+            max_elements=max_elements, 
+            lang_instructions=lang_instructions,
+            supervise_crop=supervise_crop,
+            previous_keyword=previous_keyword,
+            previous_keyword_args=previous_keyword_args
+        )
         self.num_words_per_input = num_words_per_input
 
         # Vocabulary
@@ -490,41 +689,42 @@ class TypeTextRecorder(DataRecorderInterface):
 
         for el_screenshot in el_screenshots:
             # Type text in the same element with random vocabulary
-            inputs = [' '.join(random.sample(self.seed_words, random.randint(1, 3))) for _ in range(self.num_words_per_input)]
+            inputs = [' '.join(random.sample(self.seed_words, random.randint(1, 9))) for _ in range(self.num_words_per_input)]
             for input in inputs:
                 self._seek_element_perform_action(el_screenshot, input)
                 # Restore page
                 page.restore_page(current_context)
 
-    def _predict_instruction(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox, string: str):
+    def _predict_instruction_legacy(self, screenshot_path: Optional[str], element_path: str, action_bbox: BBox, string: str):
         """
         Find the closest text to the action_bbox.
         """
-        def get_texts_and_bboxes(screenshot_path: str) -> list[tuple[str, BBox]]:
+        def get_texts_and_bboxes(element_path_: str) -> list[tuple[str, BBox]]:
             # Get text and bbox
             lang = BuiltIn().get_variable_value("${LANG}", default="en")
-            img_screen = Image.open(screenshot_path)
+            img_screen = Image.open(element_path_)
             text_and_bboxes = ocr.get_text_and_bbox(self.ocr_url, img_screen, conf_threshold=0.8, lang=lang)
             if not text_and_bboxes:
-                BuiltIn().log(f"Error while getting text from {screenshot_path}", level='WARN', console=True)
+                BuiltIn().log(f"Error while getting text from {element_path_}", level='WARN', console=True)
                 return []
             # Return list(text, bbox) from text_and_bboxes of type tuple[list[str], list[BBox]]
             return list(zip(*text_and_bboxes))
+        
         if self.lang_instructions == "es":
             type_str = ["Introduce el texto", "Escribe", "Pon", "Busca", "Introduce", "Escribe el texto", "Busca", "Introduce el texto"]
         else:
             type_str = ["Type text", "Write", "Put", "Search", "Type", "Write text", "Search", "Type text"]
         instruction = f"{random.choice(type_str)} {string}"
         # instruction = "Type text {0}".format(string)
-        if not screenshot_path:
+        if not element_path:
             return instruction
 
         # Only read the text one time
-        image = Image.open(screenshot_path)
+        image = Image.open(element_path)
         img_hash = imagehash.average_hash(image)
         if not hasattr(self, 'screenshot_hash') or self.screenshot_hash != img_hash:
             self.screenshot_hash = img_hash
-            self.text_bboxes = get_texts_and_bboxes(screenshot_path)
+            self.text_bboxes = get_texts_and_bboxes(element_path)
 
         # Find the closest text to the action_bbox
         if len(self.text_bboxes) > 0:
@@ -541,6 +741,10 @@ class TypeTextRecorder(DataRecorderInterface):
 
         return instruction
     
+    def _predict_instruction(self, screenshot_path: str, element_path: str, action_bbox: BBox, string):
+        return predict_instruction_accurate(f"Type: '{string}'", screenshot_path, element_path)
+
+
     def _action(self, predicted_instruction: str, img_element: cv2.Mat, el_margin: tuple[int, int], string: str):
         
         # Calculate the scroll gap.
@@ -560,11 +764,15 @@ class TypeTextRecorder(DataRecorderInterface):
         # library_instance: Browser, num_words_per_input = 5, wait_to_go: int = 2, max_scroll: int = 5, max_elements: int = -2, lang_instructions: str="en"
         args = (            
             self.library,
+            self.elements_xpath,
             self.num_words_per_input,
             self.wait_to_go,
             self.max_scroll,
             self.max_elements,
-            self.lang_instructions
+            self.lang_instructions,
+            self.supervise_crop,
+            self.previous_keyword,
+            self.previous_keyword_args
         )
 
         BuiltIn().import_library("ButlerRobot.RecordersLibraries.TypeTextRecorder", *args, 'WITH NAME', 'TypeTextRecorder')

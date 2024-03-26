@@ -47,7 +47,7 @@ class ExecStackRecorder:
         logger.info(f"Starting task {task_name}")
 
         # Configure the output path
-        file_name = f"{task_name}_{datetime.now().strftime('%H-%M_%d-%m-%Y')}.pickle"
+        file_name = f"{task_name}_{datetime.now().strftime('%H-%M_%d-%m-%Y')}.json"
         self.out_path = os.path.join(self.out_path, file_name)
 
         # Create task
@@ -103,7 +103,7 @@ class ExecStackRecorder:
         
     def save_task(self, screenshot: str):
         """
-        Save the task to a pickle file. The screenshot is to update the end observation.
+        Save the task to a json file. The screenshot is to update the end observation.
         :param screenshot: The screenshot of the page at the end of the task
         """
         assert self.root_task, "Trying to save task. No root task found"

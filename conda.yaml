@@ -1,13 +1,16 @@
-name: base
+name: robotframework
 
 channels:
-  - defaults
+  - default
+  - conda-forge
 
 dependencies:
   - python=3.10
+  - nodejs
   - pip
 
   - pip:
     - pytest
     - httpx
-    - -e /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat
+    - openai
+    # - -e /workspaces/ai-butlerhat/data-butlerhat/robotframework-butlerhat[browser_stealth]

@@ -30,7 +30,9 @@ jobs:
         pyminify ButlerRobot/ --in-place
 
     - name: Build Python package
-      run: python setup.py sdist
+      run: |
+        pip install setuptools_scm
+        python setup.py sdist
 
     - name: Copy package to submodule directory
       run: |

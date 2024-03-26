@@ -1,7 +1,4 @@
 import os
-import json
-import pickle
-import dataclasses
 import inspect
 from datetime import datetime
 import re
@@ -10,7 +7,7 @@ from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
 from robot.running.arguments.embedded import EmbeddedArguments, EmbeddedArgumentParser
 # Install with pip install -e .
-# Needs this import to be able to reuse pickle
+# Needs this import to be able to reuse pickle (TODO: Check if it's necessary)
 from .src.data_types import BBox, Observation, Context, Step, PageAction, Task, DomSet, SaveStatus
 
 
@@ -349,19 +346,14 @@ class DataWrapperLibrary:
         # Set status
         test_task.context.status = attrs['status']
         
-        # Save test_task to pickle
+        # Save test_task to json
         if not os.path.exists(self.suite_out_path):
             os.makedirs(self.suite_out_path)
         BuiltIn().log(f"Saving test {test_task.name} from {self._library.__class__.__name__} to {self.suite_out_path}", console=True, level="DEBUG")
-        
-        # Save pickle
-        with open(os.path.join(self.suite_out_path, f"{name}.pickle"), "wb") as f:
-            pickle.dump(test_task, f, pickle.HIGHEST_PROTOCOL)
 
-        # Save test_task to keyword_libraries
-        if self.all_json or 'json' in attrs['tags']:
-            with open(os.path.join(self.suite_out_path, f"{name}.json"), 'w', encoding='utf-8') as f:
-                json.dump(dataclasses.asdict(test_task), f, ensure_ascii=False, indent=4)
+        # Save in json
+        save_path = os.path.join(self.suite_out_path, f"{name}.json")
+        test_task.save(save_path)
 
     def _start_keyword(self, name, attrs) -> Optional[Step]:
         """
@@ -592,7 +584,7 @@ class DataWrapperLibrary:
 
     # ========================= PROXY LIBRARY =========================
 
-    def __init__(self, library, console=True, record=True, output_path=None, all_json=False, only_actions=True):
+    def __init__(self, library, console=True, record=True, output_path=None, only_actions=True):
         
         self._library = library
         self.keyword_libraries = ['BuiltIn']
@@ -634,7 +626,6 @@ class DataWrapperLibrary:
 
         # Create output path
         self.suite_out_path = output_path or os.path.join(os.getcwd(), "data")
-        self.all_json = all_json
         self.console = console
         self.last_selector_error: str = ""
 

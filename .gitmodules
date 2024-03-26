@@ -25,3 +25,6 @@
 [submodule "orchestrator-butlerhat"]
 	path = orchestrator-butlerhat
 	url = git@github.com:ButlerHat/orchestrator-butlerhat.git
+[submodule "TestSuites/TownHallChat"]
+	path = TestSuites/TownHallChat
+	url = git@github.com:ButlerHat/TownHallChat.git

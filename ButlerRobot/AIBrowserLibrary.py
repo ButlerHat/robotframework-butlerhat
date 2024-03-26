@@ -5,6 +5,7 @@ import copy
 import base64
 import io
 import time
+from dataclasses import asdict
 from PIL import Image
 from enum import Enum, auto
 from robot.api.deco import keyword
@@ -289,7 +290,7 @@ class AIBrowserLibrary(DataBrowserLibrary):
             pointer_xy = (int(bbox.x + bbox.width/2), int(bbox.y + bbox.height/2))
             fixed_bbox: BBox | None = self._get_element_bbox_from_pointer(*pointer_xy)
             bbox: BBox = fixed_bbox if fixed_bbox else bbox
-            elemnt_img_str = self._library.take_screenshot(crop=BoundingBox(**bbox.to_dict()), return_as=ScreenshotReturnType.base64)
+            elemnt_img_str = self._library.take_screenshot(crop=BoundingBox(**asdict(bbox)), return_as=ScreenshotReturnType.base64)
             # Save the image with pillow
             if self.save_screenshots:
                 img = Image.open(io.BytesIO(base64.b64decode(elemnt_img_str)))
