@@ -24,7 +24,12 @@ jobs:
     - name: Ofuscate phthon
       run: |
         pip install python-minifier
+        git checkout -b temp-build
         pyminify ButlerRobot/ --in-place
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git commit -m "Obfuscated Python for build"
 
     - name: Build Python package
       run: |
