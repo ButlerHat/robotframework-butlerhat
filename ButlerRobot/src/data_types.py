@@ -1,17 +1,3 @@
-from __future__ import annotations
-from enum import Enum
-from json import JSONEncoder
-import math
-import base64
-import json
-import os
-import re
-import imagehash
-from io import BytesIO
-from PIL import Image
-from dataclasses import dataclass, field, asdict, is_dataclass
-from typing import Iterable, Optional
-
 """
 Data structure for the ButlerRobot.
 
@@ -37,6 +23,21 @@ Data structure for the ButlerRobot.
 == Task(Step): A task is a group of steps.
     - steps: List[Step]. The steps of the task.
 """
+
+from __future__ import annotations
+from enum import Enum
+from json import JSONEncoder
+import math
+import base64
+import json
+import os
+import re
+import imagehash
+from io import BytesIO
+from PIL import Image
+from dataclasses import dataclass, field, asdict, is_dataclass
+from typing import Iterable, Optional
+
 
 class SaveStatus(Enum):
     """Enum that defines if step must be saved."""
@@ -76,7 +77,7 @@ class Step:
     def is_complete(self) -> bool:
         # Check if all the attributes are set and not None
         context_complete = self.context is not None and self.context.is_complete()
-        return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and context_complete
+        return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and context_complete  # pylint: disable=no-member
     
     def save(self, save_path: str):
         """
@@ -360,7 +361,7 @@ class Context:
         # Check if all the attributes are set and not None
         start_complete = self.end_observation is not None and self.start_observation.is_complete()
         end_complete = self.end_observation is not None and self.end_observation.is_complete()
-        return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and start_complete and end_complete
+        return all([hasattr(self, attr) and getattr(self, attr) is not None for attr in self.__dataclass_fields__]) and start_complete and end_complete  # pylint: disable=no-member
     
     @classmethod
     def from_dict(cls, data):
@@ -424,7 +425,7 @@ class Observation:
         # Ignore dom
         dom = self.dom
         self.dom = 'True'
-        complete = all([hasattr(self, attr) and getattr(self, attr) for attr in self.__dataclass_fields__])
+        complete = all([hasattr(self, attr) and getattr(self, attr) for attr in self.__dataclass_fields__])  # pylint: disable=no-member
         self.dom = dom
         return complete
 

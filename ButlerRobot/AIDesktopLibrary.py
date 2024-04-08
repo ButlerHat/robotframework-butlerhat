@@ -30,7 +30,7 @@ class IAToRFParser:
         """
         Parse the action from the AI to a Robot Framework instruction
         """
-        action_lower = action.strip().lower()
+        action_lower: str = action.strip().lower()
         bbox: Optional[BBox] = None
         if 'bbox' in action_lower:
             bbox = BBox.from_rf_string(action_lower)

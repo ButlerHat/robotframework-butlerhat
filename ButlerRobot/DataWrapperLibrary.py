@@ -5,7 +5,7 @@ import re
 from typing import Optional
 from robot.api.deco import keyword
 from robot.libraries.BuiltIn import BuiltIn
-from robot.running.arguments.embedded import EmbeddedArguments, EmbeddedArgumentParser
+from robot.running.arguments.embedded import EmbeddedArguments
 # Install with pip install -e .
 # Needs this import to be able to reuse pickle (TODO: Check if it's necessary)
 from .src.data_types import BBox, Observation, Context, Step, PageAction, Task, DomSet, SaveStatus
@@ -577,6 +577,10 @@ class DataWrapperLibrary:
         try:
             self.exec_stack.add_to_parent(step)
             BuiltIn().log(f"Step {step.name} stored", console=self.console, level="INFO")
+            # Save in json
+            root: Step = self.exec_stack.get_root()
+            save_path = os.path.join(self.suite_out_path, f"{root.name}.json")
+            root.save(save_path)
         except Exception as e:
             BuiltIn().log(f"Not recording {step.name}.Error adding to parent: {e}", console=self.console, level="ERROR")
         return
@@ -699,7 +703,7 @@ class DataWrapperLibrary:
                 # Update last observation of parents
                 self.last_observation = observation
 
-            assert step.context, f"Step {step.name} has no context. Cannot set start_observation"
+            assert step.context, f"Step {step.name} has no context. Cannot set start_observation"  # (is global variable :( )  # pylint: disable=used-before-assignment  
             self._update_observation_and_set_in_parents(self.last_observation)
             step.context.start_observation = self.last_observation
 

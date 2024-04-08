@@ -51,6 +51,11 @@ class IAToRFParser:
             _, height = self._library.get_client_size().values()
             scroll_gap = height // 2
             return ('Browser.Scroll Down', scroll_gap)
+        elif "key" in action_lower:
+            keys = action.split('"')[1].strip()
+            # Replace Ctrl with Control, case insensitive
+            keys = keys.replace('ctrl', 'Control').replace('Ctrl', 'Control')
+            return ('Browser.Keyboard Key', keys)
         else:
             return (action_lower,)
 
