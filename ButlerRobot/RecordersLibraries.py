@@ -106,7 +106,15 @@ class DataRecorderInterface:
         Visual template matching is found the most reliable way to confirm the element
         validated is the selected in the record step.
         """
+        # Get elements
         elements = self._get_elements_to_record()
+        
+        # Restore page
+        page = Page(self.library)
+        current_context = page.get_active_context()
+        page.restore_page(current_context)
+
+        # Record elements
         self._record_elements(elements)
 
     def _get_elements_to_record(self, expand_bbox: bool = False):
@@ -674,7 +682,15 @@ class TypeTextRecorder(DataRecorderInterface):
         Override record method to expand the bounding box of the text element. 
         This is because the input text element is usually a white box.
         """
+        # Get elements
         elements = self._get_elements_to_record(expand_bbox=True)
+        
+        # Restore page
+        page = Page(self.library)
+        current_context = page.get_active_context()
+        page.restore_page(current_context)
+
+        # Record elements
         self._record_elements(elements)
     
     def _is_good_element(self, element_screenshot: str):
@@ -688,9 +704,14 @@ class TypeTextRecorder(DataRecorderInterface):
         current_context = page.get_active_context()
 
         for el_screenshot in el_screenshots:
+                
             # Type text in the same element with random vocabulary
             inputs = [' '.join(random.sample(self.seed_words, random.randint(1, 9))) for _ in range(self.num_words_per_input)]
             for input in inputs:
+                # If the previous keyword is set, run it
+                if self.previous_keyword:
+                    BuiltIn().run_keyword(self.previous_keyword, *self.previous_keyword_args)
+            
                 self._seek_element_perform_action(el_screenshot, input)
                 # Restore page
                 page.restore_page(current_context)

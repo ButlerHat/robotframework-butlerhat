@@ -1,4 +1,6 @@
+import random
 from Browser import Browser
+import ButlerRobot
 from robot.libraries.BuiltIn import RobotNotRunningError
 from .DataBrowserLibrary import DataBrowserLibrary
 from .RecordersLibraries import SingleClickRecorder, TypeTextRecorder
@@ -67,7 +69,7 @@ class CrawlLibrary:
             url,
             name_keyword,
             *args,
-            max_number_of_page_to_crawl=2, 
+            max_number_of_page_to_crawl=1, 
             max_elements: int = -1, 
             elements_xpath: list | None = None
         ):
@@ -84,7 +86,7 @@ class CrawlLibrary:
     def crawl_type(
             self, 
             url, 
-            max_number_of_page_to_crawl=2, 
+            max_number_of_page_to_crawl=1, 
             max_elements: int = -1, 
             elements_xpath: list | None = None
         ):
@@ -95,6 +97,40 @@ class CrawlLibrary:
         if elements_xpath:
             self.type_xpath = elements_xpath
         self._library.crawl_site(url, "CrawlLibrary.Crawl Page Type", int(max_number_of_page_to_crawl))
+
+    def crawl_type_after_keyword(
+            self,
+            url,
+            name_keyword,
+            *args,
+            max_number_of_page_to_crawl=1,
+            max_elements: int = -1,
+            elements_xpath: list | None = None
+        ):
+        """
+        Crawl the site and capture type
+        """
+        self.previous_keyword = name_keyword
+        self.previous_keyword_args = list(*args)
+        self._max_elements = max_elements
+        if elements_xpath:
+            self.type_xpath = elements_xpath
+        self._library.crawl_site(url, "CrawlLibrary.Crawl Page Type", int(max_number_of_page_to_crawl))
+
+    def set_supervise_crop(self, supervise_crop: bool):
+        """
+        Set the supervise crop
+        """
+        self.supervise_crop = supervise_crop
+
+
+    @staticmethod
+    def generate_random_words() -> str:
+        """
+        Generate a random string of words from the vocabulary
+        """
+        seed_words = ButlerRobot.vocabulary.get_vocabulary()
+        return ' '.join(random.sample(seed_words, random.randint(1, 9)))
 
     # ------- Private Keywords ------- 
 
@@ -116,7 +152,9 @@ class CrawlLibrary:
             elements_xpath=self.type_xpath,
             max_elements=self._max_elements, 
             lang_instructions=self._lang_instructions,
-            supervise_crop=self.supervise_crop
+            supervise_crop=self.supervise_crop,
+            previous_keyword=self.previous_keyword,
+            previous_keyword_args=self.previous_keyword_args
         )
         data_recorder.record()
 

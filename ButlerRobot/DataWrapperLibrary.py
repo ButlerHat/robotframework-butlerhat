@@ -577,12 +577,16 @@ class DataWrapperLibrary:
         try:
             self.exec_stack.add_to_parent(step)
             BuiltIn().log(f"Step {step.name} stored", console=self.console, level="INFO")
-            # Save in json
-            root: Step = self.exec_stack.get_root()
-            save_path = os.path.join(self.suite_out_path, f"{root.name}.json")
-            root.save(save_path)
         except Exception as e:
             BuiltIn().log(f"Not recording {step.name}.Error adding to parent: {e}", console=self.console, level="ERROR")
+        
+        if self.record:
+            try:
+                root: Step = self.exec_stack.get_root()
+                save_path = os.path.join(self.suite_out_path, f"{root.name}.json")
+                root.save(save_path)
+            except Exception as e:
+                BuiltIn().log(f"Error saving step {step.name}: {e}", console=self.console, level="WARN")
         return
             
 
